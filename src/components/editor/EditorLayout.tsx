@@ -1,36 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Paper, Divider, Button, Typography } from '@mui/material';
+import React from 'react';
+import { Box, Paper, Divider } from '@mui/material';
 import { FileExplorer } from './FileExplorer';
 import { TabBar } from './TabBar';
 import { CodeEditor } from './Editor';
 import { useEditorStore } from '../../stores/editorStore';
 
 export const EditorLayout = () => {
-  const [isSelectingDirectory, setIsSelectingDirectory] = useState(false);
   const { fileSystem } = useEditorStore();
-
-  useEffect(() => {
-    // Check if we have a project directory selected
-    const checkProjectDirectory = async () => {
-      try {
-        await fileSystem.requestProjectAccess();
-      } catch (error) {
-        console.error('Failed to access project directory:', error);
-      }
-    };
-    checkProjectDirectory();
-  }, [fileSystem]);
-
-  const handleSelectDirectory = async () => {
-    setIsSelectingDirectory(true);
-    try {
-      await fileSystem.requestProjectAccess();
-    } catch (error) {
-      console.error('Failed to select project directory:', error);
-    } finally {
-      setIsSelectingDirectory(false);
-    }
-  };
 
   return (
     <Box
@@ -51,36 +27,14 @@ export const EditorLayout = () => {
           flexDirection: 'column'
         }}
       >
-        <Box sx={{ p: 1, textAlign: 'center' }}>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={handleSelectDirectory}
-            disabled={isSelectingDirectory}
-            fullWidth
-          >
-            Select Project Directory
-          </Button>
-        </Box>
         <FileExplorer />
       </Paper>
 
       {/* Editor Area */}
-      <Box
-        sx={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
-        }}
-      >
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <TabBar />
-        <Box
-          sx={{
-            flex: 1,
-            overflow: 'hidden'
-          }}
-        >
+        <Divider />
+        <Box sx={{ flex: 1, overflow: 'hidden' }}>
           <CodeEditor />
         </Box>
       </Box>

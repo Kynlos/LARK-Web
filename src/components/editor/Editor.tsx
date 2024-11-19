@@ -1,173 +1,240 @@
-import React from 'react';
-import { useEffect, useRef, useCallback, useState } from 'react';
-import { Box, CircularProgress, Snackbar } from '@mui/material';
-import Editor, { OnMount } from '@monaco-editor/react';
-import { editor } from 'monaco-editor';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Box,
+  Paper,
+  Typography,
+  IconButton,
+  Tooltip,
+  useTheme,
+  alpha,
+  Button,
+  Stack,
+  Chip,
+  Divider,
+  CircularProgress,
+  Snackbar,
+  Menu,
+  MenuItem
+} from '@mui/material';
+import {
+  Save as SaveIcon,
+  FileUpload as ShareIcon,
+  Settings as SettingsIcon,
+  Fullscreen as FullscreenIcon,
+  FullscreenExit as FullscreenExitIcon,
+} from '@mui/icons-material';
+import { LordIcon } from '../common/LordIcon';
+import MonacoEditor from '@monaco-editor/react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useAuthStore } from '../../stores/authStore';
-import { registerCasebookLanguage } from '../../languages/casebook';
+import * as monaco from 'monaco-editor';
+import { AIWritingAssistant } from './AIWritingAssistant';
 
 export const CodeEditor = () => {
-  const {
-    activeFile,
-    editorInstance,
-    setEditorInstance,
-    updateFileContent,
-    saveFile,
-    isDirty
-  } = useEditorStore();
-  
+  const { activeFile, updateFileContent, saveFile, isDirty } = useEditorStore();
   const { user } = useAuthStore();
-  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const languagesRegistered = useRef(false);
+  const [isEditorReady, setIsEditorReady] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
+  const theme = useTheme();
+  const [notificationsAnchor, setNotificationsAnchor] = React.useState<null | HTMLElement>(null);
 
-  const handleSave = useCallback(async () => {
-    if (activeFile && isDirty(activeFile.id)) {
-      setSaving(true);
-      try {
-        await saveFile(activeFile.id);
-        setSaveError(null);
-      } catch (error) {
-        setSaveError(error instanceof Error ? error.message : 'Failed to save file');
-      } finally {
-        setSaving(false);
+  const handleNotificationsClick = (event: React.MouseEvent<HTMLElement>) => {
+    setNotificationsAnchor(event.currentTarget);
+  };
+
+  const handleNotificationsClose = () => {
+    setNotificationsAnchor(null);
+  };
+
+  const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {
+    editorRef.current = editor;
+    monacoRef.current = monaco;
+    setIsEditorReady(true);
+
+    editor.onDidChangeCursorSelection(() => {
+      const selection = editor.getSelection();
+      if (selection) {
+        setSelectedText(editor.getModel()?.getValueInRange(selection) || '');
+      }
+    });
+  };
+
+  const handleInsertText = (text: string) => {
+    if (editorRef.current) {
+      const editor = editorRef.current;
+      const position = editor.getPosition();
+      if (position) {
+        editor.executeEdits('ai-assistant', [{
+          range: new monacoRef.current!.Range(
+            position.lineNumber,
+            position.column,
+            position.lineNumber,
+            position.column
+          ),
+          text: text
+        }]);
       }
     }
-  }, [activeFile, isDirty, saveFile]);
+  };
 
-  const getLanguage = useCallback((filename: string) => {
-    const ext = filename.split('.').pop()?.toLowerCase();
-    if (ext === 'case') return 'casebook';
-    return undefined; // Let Monaco auto-detect
-  }, []);
-
-  const handleEditorDidMount: OnMount = (editor, monaco) => {
-    editorRef.current = editor;
-    setEditorInstance(editor);
-
-    // Register custom languages if not already registered
-    if (!languagesRegistered.current) {
-      registerCasebookLanguage();
-      languagesRegistered.current = true;
+  const handleReplaceText = (text: string) => {
+    if (editorRef.current) {
+      const editor = editorRef.current;
+      const selection = editor.getSelection();
+      if (selection) {
+        editor.executeEdits('ai-assistant', [{
+          range: selection,
+          text: text
+        }]);
+      }
     }
+  };
 
-    // Configure editor based on user preferences
-    if (user?.preferences.editorSettings) {
-      const settings = user.preferences.editorSettings;
-      editor.updateOptions({
-        fontSize: settings.fontSize,
-        fontFamily: settings.fontFamily,
-        tabSize: settings.tabSize,
-        renderWhitespace: settings.showLineNumbers ? 'all' : 'none',
-        lineNumbers: settings.showLineNumbers ? 'on' : 'off',
-        minimap: {
-          enabled: true
-        },
-        automaticLayout: true,
-        wordWrap: 'on',
-        scrollBeyondLastLine: false,
-        smoothScrolling: true,
-        cursorBlinking: 'smooth',
-        cursorSmoothCaretAnimation: 'on',
-        formatOnPaste: true,
-        formatOnType: true
-      });
-    }
-
-    // Add custom commands
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, handleSave);
-
-    // Add custom keybindings
-    if (user?.preferences.customKeybindings) {
-      Object.entries(user.preferences.customKeybindings).forEach(([key, command]) => {
-        // TODO: Implement custom keybinding logic
-      });
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      await saveFile(activeFile.id);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to save file');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleEditorChange = (value: string | undefined) => {
-    if (value !== undefined && activeFile) {
+    if (value !== undefined) {
       updateFileContent(activeFile.id, value);
     }
   };
 
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (activeFile && isDirty(activeFile.id)) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [activeFile, isDirty]);
-
-  useEffect(() => {
-    if (editorInstance && user?.preferences.editorSettings) {
-      const settings = user.preferences.editorSettings;
-      editorInstance.updateOptions({
-        fontSize: settings.fontSize,
-        fontFamily: settings.fontFamily,
-        tabSize: settings.tabSize,
-        renderWhitespace: settings.showLineNumbers ? 'all' : 'none',
-        lineNumbers: settings.showLineNumbers ? 'on' : 'off',
-        cursorSmoothCaretAnimation: 'on'
-      });
-    }
-  }, [editorInstance, user?.preferences.editorSettings]);
-
-  if (!activeFile) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100%'
-        }}
-      >
-        No file selected
-      </Box>
-    );
-  }
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
 
   return (
-    <Box sx={{ width: '100%', height: '100%', position: 'relative' }}>
-      <Editor
-        height="100%"
-        defaultLanguage="plaintext"
-        language={activeFile ? getLanguage(activeFile.name) : undefined}
-        value={activeFile?.content || ''}
-        onChange={(value) => {
-          if (value !== undefined && activeFile) {
-            updateFileContent(activeFile.id, value);
-          }
+    <Box
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        ...(isFullscreen && {
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: theme.zIndex.modal,
+          bgcolor: 'background.default',
+        }),
+      }}
+    >
+      <Box
+        sx={{
+          p: 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          borderBottom: 1,
+          borderColor: 'divider',
         }}
-        onMount={handleEditorDidMount}
-        theme={user?.preferences.theme === 'dark' ? 'vs-dark' : 'light'}
-        options={{
-          readOnly: saving
-        }}
-      />
-      {saving && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1
+      >
+        <Stack direction="row" spacing={1} sx={{ flexGrow: 1 }}>
+          {isDirty && (
+            <Chip
+              label="Unsaved Changes"
+              color="warning"
+              size="small"
+            />
+          )}
+        </Stack>
+
+        <Stack direction="row" spacing={1}>
+          <Tooltip title="Save (Ctrl+S)">
+            <IconButton
+              onClick={handleSave}
+              disabled={!isDirty || saving}
+            >
+              {saving ? (
+                <CircularProgress size={24} />
+              ) : (
+                <SaveIcon />
+              )}
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Share">
+            <IconButton>
+              <ShareIcon />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Notifications">
+            <IconButton onClick={handleNotificationsClick}>
+              <LordIcon
+                icon="psnhyobz"
+                size={24}
+                state="hover-bell"
+              />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Settings">
+            <IconButton>
+              <SettingsIcon />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+            <IconButton onClick={toggleFullscreen}>
+              {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      </Box>
+
+      <Box sx={{ flexGrow: 1, position: 'relative' }}>
+        <MonacoEditor
+          height="100%"
+          defaultLanguage="markdown"
+          theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'vs-light'}
+          value={activeFile?.content || ''}
+          onChange={handleEditorChange}
+          onMount={handleEditorDidMount}
+          options={{
+            minimap: { enabled: true },
+            fontSize: 14,
+            wordWrap: 'on',
+            wrappingIndent: 'indent',
+            lineNumbers: 'on',
+            renderLineHighlight: 'all',
+            automaticLayout: true,
           }}
-        >
-          <CircularProgress size={20} />
-        </Box>
-      )}
+        />
+
+        <AIWritingAssistant
+          selectedText={selectedText}
+          onInsertText={handleInsertText}
+          onReplaceText={handleReplaceText}
+        />
+      </Box>
+
+      <Menu
+        anchorEl={notificationsAnchor}
+        open={Boolean(notificationsAnchor)}
+        onClose={handleNotificationsClose}
+      >
+        <MenuItem onClick={handleNotificationsClose}>
+          No new notifications
+        </MenuItem>
+      </Menu>
+
       <Snackbar
-        open={saveError !== null}
+        open={!!saveError}
         autoHideDuration={6000}
         onClose={() => setSaveError(null)}
         message={saveError}

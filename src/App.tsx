@@ -11,6 +11,7 @@ import { EditorLayout } from './components/editor/EditorLayout';
 import { ProfilePage } from './components/profile/ProfilePage';
 import { SettingsPage } from './components/settings/SettingsPage';
 import { AdminPage } from './components/admin/AdminPage';
+import { FileExplorer } from './components/files/FileExplorer';
 
 function App() {
   const { isAuthenticated, user } = useAuthStore();
@@ -40,31 +41,16 @@ function App() {
             }
           />
           <Route
-            path="/"
+            path="/*"
             element={
               <AuthGuard>
                 <MainLayout>
-                  <EditorLayout />
-                </MainLayout>
-              </AuthGuard>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <AuthGuard>
-                <MainLayout>
-                  <ProfilePage />
-                </MainLayout>
-              </AuthGuard>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <AuthGuard>
-                <MainLayout>
-                  <SettingsPage />
+                  <Routes>
+                    <Route index element={<EditorLayout />} />
+                    <Route path="profile" element={<ProfilePage />} />
+                    <Route path="files/*" element={<FileExplorer />} />
+                    <Route path="settings" element={<SettingsPage />} />
+                  </Routes>
                 </MainLayout>
               </AuthGuard>
             }

@@ -7,30 +7,56 @@ A modern, extensible web-based version of the Language Analysis and Response Kit
 ```
 src/
 ├── core/           # Core functionality and interfaces
-│   ├── types/      # Type definitions
-│   │   ├── auth.ts        # Authentication types
-│   │   ├── editor.ts      # Editor types
-│   │   ├── message.ts     # Message processing types
-│   │   └── plugin.ts      # Plugin system types
-│   ├── PluginManager.ts   # Plugin management system
-│   └── MessageProcessor.ts # Message processing pipeline
+│   └── types/      # Type definitions
+│       ├── auth.ts        # Authentication types
+│       └── editor.ts      # Editor types
 ├── components/     # React components
 │   ├── auth/       # Authentication components
+│   │   ├── LoginForm.tsx  # Login form
+│   │   └── RegisterForm.tsx # Registration form
+│   ├── common/     # Shared components
+│   │   └── LordIcon.tsx   # LordIcon component wrapper
 │   ├── editor/     # Editor components
-│   │   ├── Editor.tsx     # Monaco editor integration
-│   │   ├── FileExplorer.tsx # File tree navigation
-│   │   ├── TabBar.tsx     # Open files management
-│   │   └── EditorLayout.tsx # Main editor layout
+│   │   ├── Editor.tsx     # Main editor component
+│   │   ├── EditorLayout.tsx # Editor layout container
+│   │   ├── FileOperationDialog.tsx # File operation UI
+│   │   ├── MonacoEditor.tsx # Monaco editor wrapper
+│   │   └── TabBar.tsx     # Editor tabs management
+│   ├── files/      # File management components
+│   │   ├── FileExplorer.tsx # File system navigation
+│   │   └── FilePreview.tsx  # File preview component
 │   ├── layout/     # Layout components
-│   └── common/     # Shared components
-├── services/       # Core services
-│   └── FileSystemService.ts # File system operations
+│   │   └── MainLayout.tsx   # Main app layout
+│   └── profile/    # User profile components
+│       ├── Profile.tsx      # User profile view
+│       └── ProfilePage.tsx  # Profile page container
+├── languages/      # Language support
+│   └── casebook.ts # Casebook language definition
+├── server/         # Server-side logic
+│   ├── controllers/
+│   │   └── FileController.ts
+│   ├── models/
+│   │   └── UserFile.ts
+│   └── services/
+│       ├── FileStorageService.ts
+│       └── S3Service.ts
+├── services/       # Client services
+│   ├── FileSystemService.ts     # Base file system service
+│   ├── MockFileSystemService.ts # Mock implementation
+│   └── UserFileSystemService.ts # User file system operations
 ├── stores/         # State management
-│   ├── authStore.ts # Authentication state
-│   └── editorStore.ts # Editor state
-└── types/         # Global type definitions
-    ├── file-system.d.ts # File System Access API types
-    └── vite-env.d.ts    # Vite environment types
+│   ├── authStore.ts      # Authentication state
+│   ├── editorStore.ts    # Editor state
+│   └── fileSystemStore.ts # File system state
+├── types/          # Type definitions
+│   ├── editor.ts        # Editor types
+│   ├── fileSystem.ts    # File system types
+│   └── vite-env.d.ts    # Vite environment types
+├── utils/          # Utility functions
+│   └── formatters.ts    # Data formatting utilities
+├── App.tsx         # Root application component
+├── main.tsx       # Application entry point
+└── theme.ts       # Theme configuration
 ```
 
 ## Features
@@ -49,6 +75,18 @@ LARK Web is a modern, extensible web-based editor with features including:
   - Role-based access control
   - User profiles and preferences
   - Secure authentication
+  - Personal file storage and management
+  - File sharing capabilities
+
+- **File System**
+  - Cloud-based file storage for each user
+  - Directory creation and management
+  - File upload and download
+  - File sharing with public links
+  - Bulk file operations (download directories as zip)
+  - File export and backup
+  - Move and copy operations
+  - Automatic file organization
 
 - **Plugin System**
   - Extensible plugin architecture
@@ -149,12 +187,55 @@ class MyPlugin implements Plugin {
 
 ## File System Integration
 
-LARK Web uses the File System Access API to provide native file system integration:
+LARK Web provides a flexible file system integration that can work both with mock data during development and real backend APIs in production:
 
-- Direct access to local files and folders
-- Real-time file watching and updates
-- Secure file handling with user permissions
-- Support for multiple file types
+### Development Mode
+- In-memory mock file system
+- Sample files and directories for testing
+- Full CRUD operations support
+- File search capabilities
+- No backend required
+
+### Production Mode
+- Real backend API integration
+- Cloud-based file storage
+- Secure file handling
+- User-specific file management
+- File sharing capabilities
+
+For details on switching between development and production modes, see the [API Migration Guide](docs/API_MIGRATION.md).
+
+### Features
+- Create, read, update, and delete files
+- Directory management
+- File search with content support
+- Path-based navigation
+- Type-safe operations with TypeScript
+- Proper error handling
+- Progress tracking for large operations
+
+### Usage Example
+```typescript
+const fileSystem = UserFileSystemService.getInstance();
+
+// List files in a directory
+const files = await fileSystem.listFiles('/documents');
+
+// Create a new file
+const newFile = await fileSystem.createFile({
+  name: 'example.txt',
+  path: '/documents/example.txt',
+  type: 'text/plain',
+  isDirectory: false,
+  content: 'Hello, World!'
+});
+
+// Read file contents
+const file = await fileSystem.readFile('fileId');
+
+// Search files
+const searchResults = await fileSystem.searchFiles('query', '/documents');
+```
 
 ## Contributing
 

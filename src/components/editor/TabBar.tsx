@@ -18,7 +18,7 @@ import {
   Cancel as CloseCircle
 } from '@mui/icons-material';
 import { useEditorStore } from '../../stores/editorStore';
-import { EditorFile } from '../../core/types/editor';
+import { EditorFile } from '../../types/editor';
 
 const StyledTab = styled(Tab)(({ theme }) => ({
   minHeight: 35,
@@ -49,10 +49,8 @@ export const TabBar = () => {
     files,
     activeFile,
     closeFile,
-    switchToFile,
-    saveFile,
-    saveAllFiles,
-    isDirty
+    openFile,
+    saveFile
   } = useEditorStore();
 
   const openFiles = React.useMemo(() => {
@@ -63,7 +61,7 @@ export const TabBar = () => {
   const [selectedTab, setSelectedTab] = React.useState<EditorFile | null>(null);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
-    switchToFile(newValue);
+    openFile(newValue);
   };
 
   const handleCloseTab = (event: React.MouseEvent, fileId: string) => {
@@ -80,6 +78,11 @@ export const TabBar = () => {
   const handleMoreClose = () => {
     setMoreMenuAnchor(null);
     setSelectedTab(null);
+  };
+
+  const handleSaveAll = async () => {
+    const unsavedFiles = files.filter(f => f.isUnsaved);
+    await Promise.all(unsavedFiles.map(file => saveFile(file.id)));
   };
 
   return (
@@ -99,7 +102,7 @@ export const TabBar = () => {
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', position: 'relative' }}>
                   {file.name}
-                  {isDirty(file.id) && '*'}
+                  {file.isUnsaved && '*'}
                   <CloseIcon
                     onClick={(e) => handleCloseTab(e, file.id)}
                   />
@@ -115,7 +118,7 @@ export const TabBar = () => {
           >
             <Save fontSize="small" />
           </IconButton>
-          <IconButton size="small" onClick={saveAllFiles}>
+          <IconButton size="small" onClick={handleSaveAll}>
             <SaveAll fontSize="small" />
           </IconButton>
           <IconButton
@@ -148,7 +151,7 @@ export const TabBar = () => {
               <ListItemText>Save</ListItemText>
             </MenuItem>
             <MenuItem onClick={() => {
-              saveAllFiles();
+              handleSaveAll();
               handleMoreClose();
             }}>
               <ListItemIcon>
