@@ -7,37 +7,56 @@ A modern, extensible web-based version of the Language Analysis and Response Kit
 ```
 src/
 ├── core/           # Core functionality and interfaces
-│   ├── types/      # Type definitions
-│   │   ├── auth.ts        # Authentication types
-│   │   ├── editor.ts      # Editor types
-│   │   ├── message.ts     # Message processing types
-│   │   ├── fileSystem.ts  # File system types
-│   │   └── plugin.ts      # Plugin system types
-│   ├── PluginManager.ts   # Plugin management system
-│   └── MessageProcessor.ts # Message processing pipeline
+│   └── types/      # Type definitions
+│       ├── auth.ts        # Authentication types
+│       └── editor.ts      # Editor types
 ├── components/     # React components
 │   ├── auth/       # Authentication components
+│   │   ├── LoginForm.tsx  # Login form
+│   │   └── RegisterForm.tsx # Registration form
+│   ├── common/     # Shared components
+│   │   └── LordIcon.tsx   # LordIcon component wrapper
 │   ├── editor/     # Editor components
-│   │   ├── Editor.tsx     # Monaco editor integration
-│   │   ├── FileExplorer.tsx # File tree navigation
-│   │   ├── TabBar.tsx     # Open files management
-│   │   └── EditorLayout.tsx # Main editor layout
+│   │   ├── Editor.tsx     # Main editor component
+│   │   ├── EditorLayout.tsx # Editor layout container
+│   │   ├── FileOperationDialog.tsx # File operation UI
+│   │   ├── MonacoEditor.tsx # Monaco editor wrapper
+│   │   └── TabBar.tsx     # Editor tabs management
 │   ├── files/      # File management components
-│   │   └── FileExplorer.tsx # File system UI
+│   │   ├── FileExplorer.tsx # File system navigation
+│   │   └── FilePreview.tsx  # File preview component
 │   ├── layout/     # Layout components
-│   └── common/     # Shared components
-├── services/       # Core services
-│   ├── FileSystemService.ts # Local file system operations
-│   └── UserFileSystemService.ts # Cloud file system operations
+│   │   └── MainLayout.tsx   # Main app layout
+│   └── profile/    # User profile components
+│       ├── Profile.tsx      # User profile view
+│       └── ProfilePage.tsx  # Profile page container
+├── languages/      # Language support
+│   └── casebook.ts # Casebook language definition
+├── server/         # Server-side logic
+│   ├── controllers/
+│   │   └── FileController.ts
+│   ├── models/
+│   │   └── UserFile.ts
+│   └── services/
+│       ├── FileStorageService.ts
+│       └── S3Service.ts
+├── services/       # Client services
+│   ├── FileSystemService.ts     # Base file system service
+│   ├── MockFileSystemService.ts # Mock implementation
+│   └── UserFileSystemService.ts # User file system operations
 ├── stores/         # State management
-│   ├── authStore.ts    # Authentication state
-│   ├── editorStore.ts  # Editor state
+│   ├── authStore.ts      # Authentication state
+│   ├── editorStore.ts    # Editor state
 │   └── fileSystemStore.ts # File system state
+├── types/          # Type definitions
+│   ├── editor.ts        # Editor types
+│   ├── fileSystem.ts    # File system types
+│   └── vite-env.d.ts    # Vite environment types
 ├── utils/          # Utility functions
-│   └── formatters.ts   # Date and size formatters
-└── types/         # Global type definitions
-    ├── file-system.d.ts # File System Access API types
-    └── vite-env.d.ts    # Vite environment types
+│   └── formatters.ts    # Data formatting utilities
+├── App.tsx         # Root application component
+├── main.tsx       # Application entry point
+└── theme.ts       # Theme configuration
 ```
 
 ## Features
