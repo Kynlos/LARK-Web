@@ -4,34 +4,26 @@ export enum UserRole {
   ADMIN = 'ADMIN'
 }
 
+export interface UserPreferences {
+  theme: 'light' | 'dark';
+  editorSettings: {
+    fontSize: number;
+    fontFamily: string;
+    tabSize: number;
+    showLineNumbers: boolean;
+  };
+}
+
 export interface User {
   id: string;
   username: string;
   email: string;
   role: UserRole;
-  createdAt: Date;
-  lastLogin: Date;
   preferences: UserPreferences;
-}
-
-export interface UserPreferences {
-  theme: 'light' | 'dark';
-  editorSettings: EditorSettings;
-  recentFiles: string[];
-  customKeybindings?: Record<string, string>;
-  autoSave: boolean;
-  livePreview: boolean;
-}
-
-export interface EditorSettings {
-  fontSize: number;
-  fontFamily: string;
-  tabSize: number;
-  useSoftTabs: boolean;
-  showLineNumbers: boolean;
-  enableAutoComplete: boolean;
-  enableLivePreview: boolean;
-  theme: string;
+  bio?: string;
+  profilePicture?: string;
+  createdAt: Date;
+  lastActive: Date;
 }
 
 export interface AuthState {
@@ -39,4 +31,14 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterCredentials extends LoginCredentials {
+  username: string;
+  confirmPassword: string;
 }

@@ -5,268 +5,223 @@ import { EditorFile, ProjectFile } from '../core/types/editor';
  * Uses the File System Access API for modern browsers.
  */
 export class FileSystemService {
-  private fileHandles: Map<string, FileSystemFileHandle> = new Map();
-  private rootDirectoryHandle: FileSystemDirectoryHandle | null = null;
-  private pickerActive = false;
+  private static instance: FileSystemService;
+  private directoryHandle: FileSystemDirectoryHandle | null = null;
+  private initialized = false;
 
-  /**
-   * Request permission to access the project directory
-   */
+  private constructor() {}
+
+  static getInstance(): FileSystemService {
+    if (!FileSystemService.instance) {
+      FileSystemService.instance = new FileSystemService();
+    }
+    return FileSystemService.instance;
+  }
+
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
+
+    try {
+      this.directoryHandle = await window.showDirectoryPicker({
+        mode: 'readwrite',
+      });
+      this.initialized = true;
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        // User cancelled the directory picker - this is fine
+        console.log('User cancelled directory selection');
+      } else {
+        console.error('Failed to initialize FileSystemService:', error);
+      }
+      // Don't throw, just continue without filesystem access
+      this.initialized = false;
+    }
+  }
+
+  isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  async getDirectoryHandle(): Promise<FileSystemDirectoryHandle> {
+    if (!this.directoryHandle) {
+      await this.initialize();
+      if (!this.directoryHandle) {
+        throw new Error('No directory access. Please select a directory first.');
+      }
+    }
+    return this.directoryHandle;
+  }
+
+  async createFile(path: string, content: string): Promise<void> {
+    try {
+      const handle = await this.getDirectoryHandle();
+      const fileHandle = await handle.getFileHandle(path, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(content);
+      await writable.close();
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        console.log('Operation cancelled by user');
+      } else {
+        console.error('Failed to create file:', error);
+        throw error;
+      }
+    }
+  }
+
+  async readFile(path: string): Promise<string> {
+    try {
+      const handle = await this.getDirectoryHandle();
+      const fileHandle = await handle.getFileHandle(path);
+      const file = await fileHandle.getFile();
+      return await file.text();
+    } catch (error) {
+      console.error('Failed to read file:', error);
+      throw error;
+    }
+  }
+
+  async deleteFile(path: string): Promise<void> {
+    try {
+      const handle = await this.getDirectoryHandle();
+      await handle.removeEntry(path);
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      throw error;
+    }
+  }
+
+  async listFiles(): Promise<string[]> {
+    try {
+      const handle = await this.getDirectoryHandle();
+      const files: string[] = [];
+      for await (const [name] of handle.entries()) {
+        files.push(name);
+      }
+      return files;
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        console.log('Operation cancelled by user');
+        return [];
+      } else {
+        console.error('Failed to list files:', error);
+        throw error;
+      }
+    }
+  }
+
   async requestProjectAccess(): Promise<boolean> {
-    if (this.pickerActive) {
-      return false;
+    if (this.initialized) {
+      return true;
     }
 
     try {
-      this.pickerActive = true;
-      const dirHandle = await window.showDirectoryPicker({
-        mode: 'readwrite',
-      });
-      this.rootDirectoryHandle = dirHandle;
-      return true;
+      await this.initialize();
+      return this.initialized;
     } catch (error) {
       console.error('Failed to get directory access:', error);
       return false;
-    } finally {
-      this.pickerActive = false;
     }
   }
 
-  /**
-   * Read a file's content
-   */
-  async readFile(path: string): Promise<EditorFile> {
-    if (!this.rootDirectoryHandle) {
+  async readFileContent(path: string): Promise<EditorFile> {
+    if (!this.initialized) {
       throw new Error('No project directory selected');
     }
 
-    const { handle, name } = await this.getFileHandle(path);
-    const file = await handle.getFile();
-    const content = await file.text();
-    const language = this.getLanguageFromFileName(name);
+    const content = await this.readFile(path);
+    const language = this.getLanguageFromFileName(path);
 
     return {
       id: path,
-      name,
+      name: path,
       path,
       content,
       language,
-      lastModified: new Date(file.lastModified),
+      lastModified: new Date(),
       isUnsaved: false,
     };
   }
 
-  /**
-   * Write content to a file
-   */
   async writeFile(path: string, content: string): Promise<void> {
-    if (!this.rootDirectoryHandle) {
+    if (!this.initialized) {
       throw new Error('No project directory selected');
     }
 
-    const { handle } = await this.getFileHandle(path, true);
-    const writable = await handle.createWritable();
-    await writable.write(content);
-    await writable.close();
+    await this.createFile(path, content);
   }
 
-  /**
-   * Create a new file
-   */
-  async createFile(path: string, name: string): Promise<EditorFile> {
-    if (!this.rootDirectoryHandle) {
+  async createFileInProject(path: string, name: string): Promise<EditorFile> {
+    if (!this.initialized) {
       throw new Error('No project directory selected');
     }
 
-    const dirHandle = await this.getDirectoryHandle(path);
-    const fileHandle = await dirHandle.getFileHandle(name, { create: true });
-    const file = await fileHandle.getFile();
-    const language = this.getLanguageFromFileName(name);
-
-    return {
-      id: `${path}/${name}`,
-      name,
-      path,
-      content: '',
-      language,
-      lastModified: new Date(file.lastModified),
-      isUnsaved: false,
-    };
+    // Ensure the file has the correct extension
+    const fileName = name.includes('.') ? name : `${name}.case`;
+    
+    await this.createFile(`${path}/${fileName}`, '');
+    const file = await this.readFileContent(`${path}/${fileName}`);
+    return file;
   }
 
-  /**
-   * Create a new directory
-   */
-  async createDirectory(path: string, name: string): Promise<void> {
-    if (!this.rootDirectoryHandle) {
+  async createDirectoryInProject(path: string, name: string): Promise<void> {
+    if (!this.initialized) {
       throw new Error('No project directory selected');
     }
 
-    const dirHandle = await this.getDirectoryHandle(path);
-    await dirHandle.getDirectoryHandle(name, { create: true });
+    const handle = await this.getDirectoryHandle();
+    await handle.getDirectoryHandle(name, { create: true });
   }
 
-  /**
-   * Delete a file or directory
-   */
-  async delete(path: string): Promise<void> {
-    if (!this.rootDirectoryHandle) {
+  async deleteFileInProject(path: string): Promise<void> {
+    if (!this.initialized) {
       throw new Error('No project directory selected');
     }
 
-    const parentPath = path.substring(0, path.lastIndexOf('/'));
-    const name = path.substring(path.lastIndexOf('/') + 1);
-    const dirHandle = await this.getDirectoryHandle(parentPath);
-    await dirHandle.removeEntry(name, { recursive: true });
+    await this.deleteFile(path);
   }
 
-  /**
-   * Rename a file or directory
-   */
-  async rename(oldPath: string, newName: string): Promise<string> {
-    if (!this.rootDirectoryHandle) {
+  async renameFileInProject(oldPath: string, newName: string): Promise<string> {
+    if (!this.initialized) {
       throw new Error('No project directory selected');
     }
 
     const parentPath = oldPath.substring(0, oldPath.lastIndexOf('/'));
     const oldName = oldPath.substring(oldPath.lastIndexOf('/') + 1);
-    const dirHandle = await this.getDirectoryHandle(parentPath);
+    const newPath = `${parentPath}/${newName}`;
 
-    // Read the old file
-    const oldHandle = await dirHandle.getFileHandle(oldName);
-    const file = await oldHandle.getFile();
-    const content = await file.text();
+    await this.deleteFile(oldPath);
+    await this.createFile(newPath, await this.readFile(oldPath));
 
-    // Create the new file
-    const newHandle = await dirHandle.getFileHandle(newName, { create: true });
-    const writable = await newHandle.createWritable();
-    await writable.write(content);
-    await writable.close();
-
-    // Delete the old file
-    await dirHandle.removeEntry(oldName);
-
-    return `${parentPath}/${newName}`;
+    return newPath;
   }
 
-  /**
-   * Get all files in the project
-   */
   async getProjectFiles(): Promise<ProjectFile[]> {
-    if (!this.rootDirectoryHandle) {
+    if (!this.initialized) {
       throw new Error('No project directory selected');
     }
 
-    return this.readDirectory(this.rootDirectoryHandle, '/');
-  }
-
-  /**
-   * Read a directory recursively
-   */
-  private async readDirectory(
-    dirHandle: FileSystemDirectoryHandle,
-    path: string
-  ): Promise<ProjectFile[]> {
     const files: ProjectFile[] = [];
+    const fileNames = await this.listFiles();
 
-    for await (const entry of dirHandle.values()) {
-      const entryPath = `${path}/${entry.name}`;
-
-      if (entry.kind === 'directory') {
-        const dirEntry = entry as FileSystemDirectoryHandle;
-        const children = await this.readDirectory(dirEntry, entryPath);
-        files.push({
-          id: entryPath,
-          name: entry.name,
-          path,
-          isDirectory: true,
-          children,
-          content: '',
-          language: 'plaintext',
-          lastModified: new Date(),
-          isUnsaved: false,
-        });
-      } else if (entry.kind === 'file') {
-        const fileEntry = entry as FileSystemFileHandle;
-        const file = await fileEntry.getFile();
-        files.push({
-          id: entryPath,
-          name: entry.name,
-          path,
-          isDirectory: false,
-          content: '',  // Don't load content until file is opened
-          language: this.getLanguageFromFileName(entry.name),
-          lastModified: new Date(file.lastModified),
-          isUnsaved: false,
-          size: file.size,
-        });
-      }
+    for (const fileName of fileNames) {
+      const file = await this.readFileContent(fileName);
+      files.push({
+        id: fileName,
+        name: fileName,
+        path: '/',
+        isDirectory: false,
+        content: file.content,
+        language: file.language,
+        lastModified: file.lastModified,
+        isUnsaved: file.isUnsaved,
+      });
     }
 
-    return files.sort((a, b) => {
-      if (a.isDirectory === b.isDirectory) {
-        return a.name.localeCompare(b.name);
-      }
-      return a.isDirectory ? -1 : 1;
-    });
+    return files;
   }
 
-  /**
-   * Get a file handle from a path
-   */
-  private async getFileHandle(
-    path: string,
-    create = false
-  ): Promise<{ handle: FileSystemFileHandle; name: string }> {
-    if (!this.rootDirectoryHandle) {
-      throw new Error('No project directory selected');
-    }
-
-    const parts = path.split('/').filter(Boolean);
-    const fileName = parts.pop();
-
-    if (!fileName) {
-      throw new Error('Invalid path');
-    }
-
-    let currentHandle: FileSystemDirectoryHandle = this.rootDirectoryHandle;
-
-    // Navigate to the directory containing the file
-    for (const part of parts) {
-      currentHandle = await currentHandle.getDirectoryHandle(part);
-    }
-
-    // Get the file handle
-    const fileHandle = await currentHandle.getFileHandle(fileName, { create });
-    return { handle: fileHandle, name: fileName };
-  }
-
-  /**
-   * Get a directory handle from a path
-   */
-  private async getDirectoryHandle(path: string): Promise<FileSystemDirectoryHandle> {
-    if (!this.rootDirectoryHandle) {
-      throw new Error('No project directory selected');
-    }
-
-    if (path === '/') {
-      return this.rootDirectoryHandle;
-    }
-
-    const parts = path.split('/').filter(Boolean);
-    let currentHandle: FileSystemDirectoryHandle = this.rootDirectoryHandle;
-
-    for (const part of parts) {
-      currentHandle = await currentHandle.getDirectoryHandle(part);
-    }
-
-    return currentHandle;
-  }
-
-  /**
-   * Get the language from a file name
-   */
-  getLanguageFromFileName(fileName: string): string {
+  private getLanguageFromFileName(fileName: string): string {
     const extension = fileName.split('.').pop()?.toLowerCase() || '';
     const languageMap: Record<string, string> = {
       js: 'javascript',

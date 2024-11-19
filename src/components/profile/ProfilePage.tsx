@@ -1,5 +1,4 @@
-import React from 'react';
-import { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -10,32 +9,74 @@ import {
   Avatar,
   Divider,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  IconButton
 } from '@mui/material';
+import { PhotoCamera } from '@mui/icons-material';
 import { useAuthStore } from '../../stores/authStore';
 
 export const ProfilePage = () => {
   const { user, updateUser } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout>();
   const [formData, setFormData] = useState({
     username: user?.username || '',
     email: user?.email || '',
-    theme: user?.preferences.theme || 'dark',
-    fontSize: user?.preferences.editorSettings.fontSize || 14,
-    fontFamily: user?.preferences.editorSettings.fontFamily || 'Fira Code',
-    tabSize: user?.preferences.editorSettings.tabSize || 2,
-    useSoftTabs: user?.preferences.editorSettings.useSoftTabs || true,
-    showLineNumbers: user?.preferences.editorSettings.showLineNumbers || true,
-    enableAutoComplete: user?.preferences.editorSettings.enableAutoComplete || true,
-    enableLivePreview: user?.preferences.editorSettings.enableLivePreview || true
+    bio: user?.bio || '',
+    theme: user?.preferences?.theme || 'dark',
+    fontSize: user?.preferences?.editorSettings?.fontSize || 14,
+    fontFamily: user?.preferences?.editorSettings?.fontFamily || 'JetBrains Mono, monospace',
+    tabSize: user?.preferences?.editorSettings?.tabSize || 2,
+    showLineNumbers: user?.preferences?.editorSettings?.showLineNumbers || true,
   });
+
+  const debouncedSave = useCallback((newBio: string) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(async () => {
+      if (!user) return;
+      await updateUser({
+        ...user,
+        bio: newBio,
+      });
+    }, 1000);
+  }, [user, updateUser]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, checked } = e.target;
+    const newValue = e.target.type === 'checkbox' ? checked : value;
+    
     setFormData(prev => ({
       ...prev,
-      [name]: e.target.type === 'checkbox' ? checked : value
+      [name]: newValue
     }));
+
+    // Auto-save bio changes
+    if (name === 'bio') {
+      debouncedSave(value);
+    }
+  };
+
+  const handleProfilePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    try {
+      // Convert image to base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result as string;
+        await updateUser({
+          ...user,
+          profilePicture: base64String,
+        });
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,17 +88,12 @@ export const ProfilePage = () => {
       username: formData.username,
       email: formData.email,
       preferences: {
-        ...user.preferences,
         theme: formData.theme as 'light' | 'dark',
         editorSettings: {
           fontSize: Number(formData.fontSize),
           fontFamily: formData.fontFamily,
           tabSize: Number(formData.tabSize),
-          useSoftTabs: formData.useSoftTabs,
           showLineNumbers: formData.showLineNumbers,
-          enableAutoComplete: formData.enableAutoComplete,
-          enableLivePreview: formData.enableLivePreview,
-          theme: user.preferences.editorSettings.theme
         }
       }
     });
@@ -70,11 +106,34 @@ export const ProfilePage = () => {
     <Box sx={{ maxWidth: 800, mx: 'auto', py: 4 }}>
       <Paper elevation={3} sx={{ p: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-          <Avatar
-            sx={{ width: 80, height: 80, mr: 3 }}
-          >
-            {user.username.charAt(0).toUpperCase()}
-          </Avatar>
+          <Box sx={{ position: 'relative' }}>
+            <Avatar
+              src={user.profilePicture}
+              sx={{ width: 80, height: 80, mr: 3 }}
+            >
+              {user.username.charAt(0).toUpperCase()}
+            </Avatar>
+            <IconButton
+              sx={{
+                position: 'absolute',
+                bottom: -10,
+                right: 12,
+                backgroundColor: 'background.paper',
+                '&:hover': { backgroundColor: 'action.hover' },
+              }}
+              aria-label="upload picture"
+              component="label"
+              size="small"
+            >
+              <input
+                hidden
+                accept="image/*"
+                type="file"
+                onChange={handleProfilePictureUpload}
+              />
+              <PhotoCamera fontSize="small" />
+            </IconButton>
+          </Box>
           <Box>
             <Typography variant="h4">{user.username}</Typography>
             <Typography variant="body1" color="text.secondary">
@@ -94,6 +153,20 @@ export const ProfilePage = () => {
               <Typography variant="h6" gutterBottom>
                 Profile Settings
               </Typography>
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                label="Bio"
+                name="bio"
+                value={formData.bio}
+                onChange={handleInputChange}
+                placeholder="Tell us about yourself..."
+                helperText="Changes are saved automatically"
+              />
             </Grid>
 
             <Grid item xs={12} md={6}>
@@ -164,20 +237,6 @@ export const ProfilePage = () => {
               <FormControlLabel
                 control={
                   <Switch
-                    name="useSoftTabs"
-                    checked={formData.useSoftTabs}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                  />
-                }
-                label="Use Soft Tabs"
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
                     name="showLineNumbers"
                     checked={formData.showLineNumbers}
                     onChange={handleInputChange}
@@ -189,57 +248,20 @@ export const ProfilePage = () => {
             </Grid>
 
             <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    name="enableAutoComplete"
-                    checked={formData.enableAutoComplete}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                  />
-                }
-                label="Enable Auto Complete"
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    name="enableLivePreview"
-                    checked={formData.enableLivePreview}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                  />
-                }
-                label="Enable Live Preview"
-              />
-            </Grid>
-
-            <Grid item xs={12}>
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-                {isEditing ? (
-                  <>
-                    <Button
-                      variant="outlined"
-                      onClick={() => setIsEditing(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      color="primary"
-                    >
-                      Save Changes
-                    </Button>
-                  </>
-                ) : (
+                <Button
+                  variant="outlined"
+                  onClick={() => setIsEditing(!isEditing)}
+                >
+                  {isEditing ? 'Cancel' : 'Edit Settings'}
+                </Button>
+                {isEditing && (
                   <Button
+                    type="submit"
                     variant="contained"
-                    onClick={() => setIsEditing(true)}
+                    color="primary"
                   >
-                    Edit Profile
+                    Save Changes
                   </Button>
                 )}
               </Box>

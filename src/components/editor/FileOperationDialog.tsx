@@ -4,8 +4,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Button,
+  TextField,
   Alert
 } from '@mui/material';
 import { useEditorStore } from '../../stores/editorStore';
@@ -49,13 +49,32 @@ export const FileOperationDialog: React.FC<FileOperationDialogProps> = ({
       }
 
       onClose();
+      setName('');
+      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Operation failed');
     }
   };
 
+  const handleClose = () => {
+    setName('');
+    setError(null);
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={handleClose} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          minWidth: '400px'
+        }
+      }}
+    >
       <DialogTitle>
         {mode === 'create' ? `Create New ${type}` : `Rename ${type}`}
       </DialogTitle>
@@ -84,7 +103,7 @@ export const FileOperationDialog: React.FC<FileOperationDialogProps> = ({
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleClose}>Cancel</Button>
         <Button onClick={handleSubmit} variant="contained">
           {mode === 'create' ? 'Create' : 'Rename'}
         </Button>

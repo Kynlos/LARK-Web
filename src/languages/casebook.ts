@@ -6,11 +6,13 @@ export const registerCasebookLanguage = () => {
     id: 'casebook',
     extensions: ['.case'],
     aliases: ['Casebook', 'casebook'],
+    mimetypes: ['text/x-casebook']
   });
 
   // Register a tokens provider for the language
   languages.setMonarchTokensProvider('casebook', {
-    defaultToken: 'invalid',
+    ignoreCase: false,
+    defaultToken: '',
 
     // Keywords from the grammar
     keywords: [
@@ -57,10 +59,10 @@ export const registerCasebookLanguage = () => {
         [/\b(?:SCENE|DO|LET|WHILE|RETURN|THEN)\b/, 'keyword'],
         [/\$(?:if|elif|for)\b/, 'keyword.control'],
         [/\b(?:ELSE)\b/, 'keyword.control'],
-        [/\b(?:true|false|null)\b/, 'keyword.constant'],
+        [/\b(?:true|false|null)\b/, 'constant.language'],
 
         // Section types
-        [/\b(?:OPTIONS|SETUP|COVER|FRONT|HINTS|DOCUMENTS|LEADS|DAY_SECTION|GENERIC|END)\b/, 'type.identifier'],
+        [/\b(?:OPTIONS|SETUP|COVER|FRONT|HINTS|DOCUMENTS|LEADS|DAY_SECTION|GENERIC|END)\b/, 'type'],
 
         // Function calls
         [/\$[a-zA-Z][a-zA-Z0-9_]*(?:configure|check|get|set|is|has|find|create|update|delete|validate|process)[A-Za-z0-9_]*/, 'support.function'],
@@ -80,8 +82,8 @@ export const registerCasebookLanguage = () => {
         [/<<</, 'delimiter', '@raw_text'],
 
         // Delimiters and operators
-        [/[{}()\[\]]/, '@brackets'],
-        [/[<>](?!<<|>>)/, '@brackets'],
+        [/[{}()\[\]]/, 'delimiter.bracket'],
+        [/[<>](?!<<|>>)/, 'delimiter.bracket'],
         [/@symbols/, {
           cases: {
             '@operators': 'operator',
@@ -101,28 +103,6 @@ export const registerCasebookLanguage = () => {
         [/[^\/*]+/, 'comment'],
         [/\*\//, 'comment', '@pop'],
         [/[\/*]/, 'comment']
-      ],
-
-      section_header: [
-        [/[a-zA-Z0-9][a-zA-Z0-9_\-\.\/]*/, 'entity.name.section'],
-        [/"([^"\\]|\\.)*"/, 'string'],
-        [/\$\(/, 'delimiter', '@options'],
-        [/\n/, '', '@pop']
-      ],
-
-      child_header: [
-        [/[a-zA-Z0-9][a-zA-Z0-9_\-\.\/]*/, 'entity.name.section'],
-        [/"([^"\\]|\\.)*"/, 'string'],
-        [/\$\(/, 'delimiter', '@options'],
-        [/\n/, '', '@pop']
-      ],
-
-      options: [
-        [/\)/, 'delimiter', '@pop'],
-        [/[a-zA-Z_][a-zA-Z0-9_]*\s*=/, 'attribute.name'],
-        [/"([^"\\]|\\.)*"/, 'string'],
-        [/'([^'\\]|\\.)*'/, 'string'],
-        [/[^)"']+/, ''],
       ],
 
       string_double: [
@@ -156,6 +136,16 @@ export const registerCasebookLanguage = () => {
       raw_text: [
         [/[^>]+/, 'string.raw'],
         [/>>>/, 'delimiter', '@pop']
+      ],
+
+      section_header: [
+        [/[^\n]+/, 'keyword.section'],
+        [/$/, '', '@pop']
+      ],
+
+      child_header: [
+        [/[^\n]+/, 'keyword.section.child'],
+        [/$/, '', '@pop']
       ]
     }
   });

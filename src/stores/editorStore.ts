@@ -1,24 +1,25 @@
 import { create } from 'zustand';
-import { editor } from 'monaco-editor';
-import { v4 as uuidv4 } from 'uuid';
-import { EditorState, EditorFile, ProjectFile } from '../core/types/editor';
-import { FileSystemService } from '../services/FileSystemService';
+import { UserFileSystemService } from '../services/UserFileSystemService';
+import { EditorFile, ProjectFile } from '../types/editor';
+import { CreateFileRequest } from '../types/fileSystem';
 
-interface EditorStore extends EditorState {
+interface EditorStore {
+  files: EditorFile[];
   projectFiles: ProjectFile[];
-  fileSystem: FileSystemService;
-  setEditorInstance: (instance: editor.IStandaloneCodeEditor | null) => void;
-  openFile: (fileId: string) => void;
+  activeFile: EditorFile | null;
+  openFiles: string[];
+  recentFiles: string[];
+  editorInstance: any;
+  fileSystem: UserFileSystemService;
+  setEditorInstance: (editor: any) => void;
+  openFile: (fileId: string) => Promise<void>;
   closeFile: (fileId: string) => void;
-  switchToFile: (fileId: string) => void;
   updateFileContent: (fileId: string, content: string) => void;
   saveFile: (fileId: string) => Promise<void>;
-  saveAllFiles: () => Promise<void>;
   createFile: (parentPath: string, name: string, content?: string) => Promise<void>;
   createFolder: (parentPath: string, name: string) => Promise<void>;
+  renameFile: (path: string, newName: string) => Promise<void>;
   deleteFile: (fileId: string) => Promise<void>;
-  renameFile: (fileId: string, newName: string) => Promise<void>;
-  isDirty: (fileId: string) => boolean;
 }
 
 export const useEditorStore = create<EditorStore>((set, get) => ({
@@ -28,11 +29,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   openFiles: [],
   recentFiles: [],
   editorInstance: null,
-  fileSystem: new FileSystemService(),
+  fileSystem: UserFileSystemService.getInstance(),
 
-  setEditorInstance: (instance) => {
-    set({ editorInstance: instance });
-  },
+  setEditorInstance: (editor) => set({ editorInstance: editor }),
 
   openFile: async (fileId) => {
     const { files, openFiles, fileSystem } = get();
@@ -63,31 +62,18 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   },
 
   closeFile: (fileId) => {
-    const { openFiles, activeFile } = get();
-    const newOpenFiles = openFiles.filter(id => id !== fileId);
-    
     set(state => ({
-      openFiles: newOpenFiles,
-      activeFile: activeFile?.id === fileId
-        ? state.files.find(f => f.id === newOpenFiles[newOpenFiles.length - 1]) ?? null
-        : activeFile
+      openFiles: state.openFiles.filter(id => id !== fileId),
+      activeFile: state.activeFile?.id === fileId ? null : state.activeFile
     }));
-  },
-
-  switchToFile: (fileId) => {
-    const { files } = get();
-    const file = files.find(f => f.id === fileId);
-    if (file) {
-      set({ activeFile: file });
-    }
   },
 
   updateFileContent: (fileId, content) => {
     set(state => ({
-      files: state.files.map(file =>
-        file.id === fileId
-          ? { ...file, content, isUnsaved: true }
-          : file
+      files: state.files.map(f =>
+        f.id === fileId
+          ? { ...f, content, isUnsaved: true }
+          : f
       )
     }));
   },
@@ -98,7 +84,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     if (!file) return;
 
     try {
-      await fileSystem.writeFile(file.path, file.content);
+      await fileSystem.updateFile(fileId, { content: file.content });
       set(state => ({
         files: state.files.map(f =>
           f.id === fileId
@@ -111,73 +97,82 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     }
   },
 
-  saveAllFiles: async () => {
-    const { files } = get();
-    const unsavedFiles = files.filter(f => f.isUnsaved);
-    await Promise.all(unsavedFiles.map(file => get().saveFile(file.id)));
-  },
-
   createFile: async (parentPath, name, content = '') => {
     const { fileSystem } = get();
     try {
-      const newFile = await fileSystem.createFile(parentPath, name);
-      if (content) {
-        await fileSystem.writeFile(newFile.path, content);
-      }
+      const request: CreateFileRequest = {
+        name,
+        path: `${parentPath}/${name}`,
+        type: 'text/plain',
+        isDirectory: false,
+        content
+      };
 
-      set(state => ({
-        files: [...state.files, { 
-          ...newFile,
-          content,
-          isUnsaved: false,
-          language: fileSystem.getLanguageFromFileName(name),
-          lastModified: new Date()
-        }],
-        projectFiles: [...state.projectFiles, {
-          ...newFile,
-          isDirectory: false,
-          content: '',
-          language: fileSystem.getLanguageFromFileName(name),
-          lastModified: new Date(),
-          isUnsaved: false
-        }]
-      }));
+      const response = await fileSystem.createFile(request);
+      if (response.success && response.file) {
+        set(state => ({
+          files: [...state.files, { 
+            ...response.file,
+            isUnsaved: false,
+            language: 'plaintext',
+            lastModified: new Date()
+          }],
+          projectFiles: [...state.projectFiles, {
+            ...response.file,
+            isDirectory: false,
+            content: '',
+            language: 'plaintext',
+            lastModified: new Date(),
+            isUnsaved: false,
+            children: []
+          }]
+        }));
+      }
     } catch (error) {
       console.error('Failed to create file:', error);
+      throw error;
     }
   },
 
   createFolder: async (parentPath, name) => {
     const { fileSystem } = get();
     try {
-      await fileSystem.createDirectory(parentPath, name);
-      const newFolder: ProjectFile = {
-        id: `${parentPath}/${name}`,
+      const request: CreateFileRequest = {
         name,
-        path: parentPath,
+        path: `${parentPath}/${name}`,
+        type: 'directory',
         isDirectory: true,
-        content: '',
-        language: 'plaintext',
-        lastModified: new Date(),
-        isUnsaved: false,
-        children: []
+        content: ''
       };
 
-      set(state => ({
-        projectFiles: [...state.projectFiles, newFolder]
-      }));
+      const response = await fileSystem.createFile(request);
+      if (response.success && response.file) {
+        set(state => ({
+          projectFiles: [...state.projectFiles, {
+            ...response.file,
+            isDirectory: true,
+            content: '',
+            language: 'plaintext',
+            lastModified: new Date(),
+            isUnsaved: false,
+            children: []
+          }]
+        }));
+      }
     } catch (error) {
       console.error('Failed to create folder:', error);
+      throw error;
     }
   },
 
-  deleteFile: async (fileId) => {
-    const { files, fileSystem } = get();
-    const file = files.find(f => f.id === fileId);
-    if (!file) return;
+  renameFile: async (path, newName) => {
+    // TODO: Implement file renaming
+  },
 
+  deleteFile: async (fileId) => {
+    const { fileSystem } = get();
     try {
-      await fileSystem.delete(file.path);
+      await fileSystem.deleteFile(fileId);
       set(state => ({
         files: state.files.filter(f => f.id !== fileId),
         openFiles: state.openFiles.filter(id => id !== fileId),
@@ -186,42 +181,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       }));
     } catch (error) {
       console.error('Failed to delete file:', error);
+      throw error;
     }
-  },
-
-  renameFile: async (fileId, newName) => {
-    const { files, fileSystem } = get();
-    const file = files.find(f => f.id === fileId);
-    if (!file) return;
-
-    try {
-      const newPath = await fileSystem.rename(file.path, newName);
-      const newId = newPath;
-
-      set(state => ({
-        files: state.files.map(f =>
-          f.id === fileId
-            ? { ...f, id: newId, path: newPath, name: newName }
-            : f
-        ),
-        openFiles: state.openFiles.map(id => id === fileId ? newId : id),
-        activeFile: state.activeFile?.id === fileId
-          ? { ...state.activeFile, id: newId, path: newPath, name: newName }
-          : state.activeFile,
-        projectFiles: state.projectFiles.map(f =>
-          f.id === fileId
-            ? { ...f, id: newId, path: newPath, name: newName }
-            : f
-        )
-      }));
-    } catch (error) {
-      console.error('Failed to rename file:', error);
-    }
-  },
-
-  isDirty: (fileId) => {
-    const { files } = get();
-    const file = files.find(f => f.id === fileId);
-    return file?.isUnsaved ?? false;
   }
 }));

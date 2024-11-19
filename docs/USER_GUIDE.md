@@ -44,19 +44,64 @@ Welcome to LARK Web! This guide will help you get started with using the LARK We
 - Rename and delete files
 - Drag and drop files to reorganize
 - Context menu for quick actions
+- Search files by name and content
+- Filter files by type
 
 ### File Operations
-- **Create File**: Click the "+" icon or right-click > New File
-- **Create Folder**: Click the folder icon or right-click > New Folder
-- **Rename**: Right-click > Rename or press F2
-- **Delete**: Right-click > Delete or press Delete
-- **Drag and Drop**: Drag files from your system into the editor
+- **Create File**: 
+  - Click the "+" icon or right-click > New File
+  - Specify file name and type
+  - Add initial content (optional)
+- **Create Folder**: 
+  - Click the folder icon or right-click > New Folder
+  - Organize files in hierarchical structure
+- **Edit File**:
+  - Open file by clicking
+  - Edit content in Monaco editor
+  - Changes are saved automatically
+- **Delete**: 
+  - Right-click > Delete or press Delete
+  - Confirmation required for safety
+- **Search**:
+  - Search by file name or content
+  - Results show matching files and locations
+  - Quick preview of matches
+- **File Info**:
+  - View file metadata (size, type, dates)
+  - See file path and location
+  - Check file permissions
 
-### Auto-save and File States
-- Files are automatically saved while editing
-- Unsaved changes are indicated with a dot in the tab
-- Warning when closing with unsaved changes
-- Error notifications for failed operations
+### File System Features
+- **Automatic Saving**:
+  - Changes saved automatically
+  - Backup copies maintained
+  - Restore previous versions
+- **File Types**:
+  - Text files (.txt, .md, etc.)
+  - Source code files
+  - Images and media
+  - Directories
+- **Path Navigation**:
+  - Breadcrumb navigation
+  - Quick directory jumping
+  - Recent locations history
+- **Error Handling**:
+  - Clear error messages
+  - Automatic retry for failed operations
+  - Data recovery options
+
+### Development vs Production
+The file system operates in two modes:
+1. **Development Mode**:
+   - Uses in-memory mock storage
+   - Comes with sample files
+   - No backend required
+   - Instant operations
+2. **Production Mode**:
+   - Connects to real backend
+   - Persistent storage
+   - User authentication
+   - File sharing features
 
 ## Editor Features
 
