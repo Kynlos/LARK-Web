@@ -17,10 +17,8 @@ import {
   MenuItem
 } from '@mui/material';
 import {
-  PlayArrow as RunIcon,
   Save as SaveIcon,
   FileUpload as ShareIcon,
-  Code as CodeIcon,
   Settings as SettingsIcon,
   Fullscreen as FullscreenIcon,
   FullscreenExit as FullscreenExitIcon,
@@ -29,8 +27,8 @@ import { LordIcon } from '../common/LordIcon';
 import MonacoEditor from '@monaco-editor/react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useAuthStore } from '../../stores/authStore';
-import { registerCasebookLanguage } from '../../languages/casebook';
 import * as monaco from 'monaco-editor';
+import { AIWritingAssistant } from './AIWritingAssistant';
 
 export const CodeEditor = () => {
   const { activeFile, updateFileContent, saveFile, isDirty } = useEditorStore();
@@ -41,7 +39,7 @@ export const CodeEditor = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState('python');
+  const [selectedText, setSelectedText] = useState('');
   const theme = useTheme();
   const [notificationsAnchor, setNotificationsAnchor] = React.useState<null | HTMLElement>(null);
 
@@ -53,130 +51,69 @@ export const CodeEditor = () => {
     setNotificationsAnchor(null);
   };
 
-  const languages = [
-    { label: 'Python', value: 'python' },
-    { label: 'JavaScript', value: 'javascript' },
-    { label: 'TypeScript', value: 'typescript' },
-    { label: 'Java', value: 'java' },
-    { label: 'C++', value: 'cpp' },
-  ];
-
-  const handleFullscreenToggle = () => {
-    setIsFullscreen(!isFullscreen);
-  };
-
-  const handleEditorWillMount = (monaco: Monaco) => {
-    monacoRef.current = monaco;
-    registerCasebookLanguage();
-  };
-
-  const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor) => {
+  const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor, monaco: Monaco) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
     setIsEditorReady(true);
-  };
 
-  const getLanguage = (filename: string): string => {
-    const ext = filename.split('.').pop()?.toLowerCase();
-    switch (ext) {
-      case 'js':
-        return 'javascript';
-      case 'ts':
-      case 'tsx':
-        return 'typescript';
-      case 'py':
-        return 'python';
-      case 'java':
-        return 'java';
-      case 'cpp':
-      case 'cc':
-        return 'cpp';
-      default:
-        return 'plaintext';
-    }
-  };
-
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    if (activeFile?.isDirty) {
-      timeoutId = setTimeout(async () => {
-        try {
-          setSaving(true);
-          await saveFile(activeFile.id);
-        } catch (error) {
-          setSaveError(error instanceof Error ? error.message : 'Failed to save file');
-        } finally {
-          setSaving(false);
-        }
-      }, 1000);
-    }
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
+    editor.onDidChangeCursorSelection(() => {
+      const selection = editor.getSelection();
+      if (selection) {
+        setSelectedText(editor.getModel()?.getValueInRange(selection) || '');
       }
-    };
-  }, [activeFile, saveFile]);
+    });
+  };
 
-  const renderEditor = () => {
-    if (!activeFile) {
-      return (
-        <Box 
-          sx={{ 
-            p: 3, 
-            textAlign: 'center',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'column',
-            gap: 2,
-          }}
-        >
-          <LordIcon
-            src="https://cdn.lordicon.com/nocovwne.json"
-            trigger="loop"
-            size={64}
-            colors={{
-              primary: theme.palette.text.secondary,
-              secondary: theme.palette.text.disabled,
-            }}
-          />
-          <Typography variant="body1" color="text.secondary">
-            No file selected
-          </Typography>
-          <Typography variant="caption" color="text.disabled">
-            Select a file from the file explorer to start editing
-          </Typography>
-        </Box>
-      );
+  const handleInsertText = (text: string) => {
+    if (editorRef.current) {
+      const editor = editorRef.current;
+      const position = editor.getPosition();
+      if (position) {
+        editor.executeEdits('ai-assistant', [{
+          range: new monacoRef.current!.Range(
+            position.lineNumber,
+            position.column,
+            position.lineNumber,
+            position.column
+          ),
+          text: text
+        }]);
+      }
     }
+  };
 
-    return (
-      <MonacoEditor
-        height="100%"
-        language={getLanguage(activeFile.name)}
-        theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
-        value={activeFile.content}
-        beforeMount={handleEditorWillMount}
-        onMount={handleEditorDidMount}
-        onChange={(value) => {
-          if (value !== undefined) {
-            updateFileContent(activeFile.id, value);
-          }
-        }}
-        options={{
-          fontSize: 14,
-          fontFamily: 'JetBrains Mono, monospace',
-          minimap: { enabled: false },
-          scrollBeyondLastLine: false,
-          lineNumbers: 'on',
-          renderLineHighlight: 'all',
-          matchBrackets: 'always',
-          automaticLayout: true,
-          padding: { top: 16, bottom: 16 },
-          readOnly: saving,
-        }}
-      />
-    );
+  const handleReplaceText = (text: string) => {
+    if (editorRef.current) {
+      const editor = editorRef.current;
+      const selection = editor.getSelection();
+      if (selection) {
+        editor.executeEdits('ai-assistant', [{
+          range: selection,
+          text: text
+        }]);
+      }
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      await saveFile(activeFile.id);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to save file');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditorChange = (value: string | undefined) => {
+    if (value !== undefined) {
+      updateFileContent(activeFile.id, value);
+    }
+  };
+
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
   };
 
   return (
@@ -185,269 +122,114 @@ export const CodeEditor = () => {
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        gap: 3,
+        ...(isFullscreen && {
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: theme.zIndex.modal,
+          bgcolor: 'background.default',
+        }),
       }}
     >
       <Box
         sx={{
+          p: 1,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          gap: 1,
+          borderBottom: 1,
+          borderColor: 'divider',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <LordIcon
-            src="https://cdn.lordicon.com/wloilxuq.json"
-            trigger="hover"
-            size={32}
-            colors={{
-              primary: theme.palette.primary.main,
-              secondary: theme.palette.secondary.main,
-            }}
-          />
-          <Typography variant="h5" fontWeight={600}>
-            Code Editor
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1}>
-          {languages.map((lang) => (
+        <Stack direction="row" spacing={1} sx={{ flexGrow: 1 }}>
+          {isDirty && (
             <Chip
-              key={lang.value}
-              label={lang.label}
-              onClick={() => setSelectedLanguage(lang.value)}
-              variant={selectedLanguage === lang.value ? 'filled' : 'outlined'}
-              color={selectedLanguage === lang.value ? 'primary' : 'default'}
-              sx={{
-                fontWeight: 500,
-                '&:hover': {
-                  backgroundColor: selectedLanguage === lang.value
-                    ? theme.palette.primary.main
-                    : alpha(theme.palette.primary.main, 0.04),
-                },
-              }}
+              label="Unsaved Changes"
+              color="warning"
+              size="small"
             />
-          ))}
-          <IconButton size="small" onClick={handleNotificationsClick}>
-            <LordIcon
-              src="https://cdn.lordicon.com/psnhyobz.json"
-              trigger="hover"
-              size={32}
-              colors={{
-                primary: theme.palette.text.primary,
-                secondary: theme.palette.text.secondary,
-              }}
-            />
-          </IconButton>
+          )}
         </Stack>
-      </Box>
 
-      <Paper
-        elevation={0}
-        sx={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          border: `1px solid ${theme.palette.divider}`,
-          borderRadius: 2,
-          ...(isFullscreen && {
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 1300,
-            m: 0,
-            borderRadius: 0,
-          }),
-        }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            p: 1,
-            borderBottom: `1px solid ${theme.palette.divider}`,
-            bgcolor: alpha(theme.palette.background.paper, 0.6),
-            backdropFilter: 'blur(8px)',
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {activeFile ? (
-              <>
-                <Tooltip title="Run code">
-                  <IconButton color="primary" size="small">
-                    <RunIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Save">
-                  <span>
-                    <IconButton 
-                      size="small" 
-                      onClick={() => saveFile(activeFile.id)}
-                      disabled={saving}
-                    >
-                      <SaveIcon />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-                <Tooltip title="Share">
-                  <IconButton size="small">
-                    <ShareIcon />
-                  </IconButton>
-                </Tooltip>
-              </>
-            ) : (
-              <>
-                <IconButton color="primary" size="small" disabled>
-                  <RunIcon />
-                </IconButton>
-                <IconButton size="small" disabled>
-                  <SaveIcon />
-                </IconButton>
-                <IconButton size="small" disabled>
-                  <ShareIcon />
-                </IconButton>
-              </>
-            )}
-            <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-            <Tooltip title="Editor settings">
-              <IconButton size="small">
-                <SettingsIcon />
-              </IconButton>
-            </Tooltip>
-          </Box>
-          <Tooltip title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}>
-            <IconButton size="small" onClick={handleFullscreenToggle}>
+        <Stack direction="row" spacing={1}>
+          <Tooltip title="Save (Ctrl+S)">
+            <IconButton
+              onClick={handleSave}
+              disabled={!isDirty || saving}
+            >
+              {saving ? (
+                <CircularProgress size={24} />
+              ) : (
+                <SaveIcon />
+              )}
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Share">
+            <IconButton>
+              <ShareIcon />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Notifications">
+            <IconButton onClick={handleNotificationsClick}>
+              <LordIcon
+                icon="psnhyobz"
+                size={24}
+                state="hover-bell"
+              />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Settings">
+            <IconButton>
+              <SettingsIcon />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+            <IconButton onClick={toggleFullscreen}>
               {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
             </IconButton>
           </Tooltip>
-        </Box>
+        </Stack>
+      </Box>
 
-        <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-          {renderEditor()}
-          {saving && (
-            <Box
-              sx={{
-                position: 'absolute',
-                top: 8,
-                right: 8,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                bgcolor: alpha(theme.palette.background.paper, 0.9),
-                p: 1,
-                borderRadius: 1,
-              }}
-            >
-              <CircularProgress size={16} />
-              <Typography variant="caption">Saving...</Typography>
-            </Box>
-          )}
-        </Box>
-      </Paper>
+      <Box sx={{ flexGrow: 1, position: 'relative' }}>
+        <MonacoEditor
+          height="100%"
+          defaultLanguage="markdown"
+          theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'vs-light'}
+          value={activeFile?.content || ''}
+          onChange={handleEditorChange}
+          onMount={handleEditorDidMount}
+          options={{
+            minimap: { enabled: true },
+            fontSize: 14,
+            wordWrap: 'on',
+            wrappingIndent: 'indent',
+            lineNumbers: 'on',
+            renderLineHighlight: 'all',
+            automaticLayout: true,
+          }}
+        />
 
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          border: `1px solid ${theme.palette.divider}`,
-          borderRadius: 2,
-          minHeight: 120,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            mb: 1,
-          }}
-        >
-          <Typography variant="subtitle2" fontWeight={600}>
-            Output
-          </Typography>
-          <Button
-            size="small"
-            startIcon={<CodeIcon />}
-            variant="outlined"
-            sx={{ textTransform: 'none' }}
-            disabled={!activeFile}
-          >
-            View Raw
-          </Button>
-        </Box>
-        <Box
-          sx={{
-            flex: 1,
-            p: 2,
-            bgcolor: alpha(theme.palette.background.paper, 0.6),
-            borderRadius: 1,
-            fontFamily: 'JetBrains Mono, monospace',
-            fontSize: '0.875rem',
-          }}
-        >
-          <Typography variant="body2" color="text.secondary">
-            {activeFile ? 'Run your code to see the output here...' : 'Select a file to get started'}
-          </Typography>
-        </Box>
-      </Paper>
+        <AIWritingAssistant
+          selectedText={selectedText}
+          onInsertText={handleInsertText}
+          onReplaceText={handleReplaceText}
+        />
+      </Box>
 
       <Menu
         anchorEl={notificationsAnchor}
         open={Boolean(notificationsAnchor)}
         onClose={handleNotificationsClose}
-        onClick={handleNotificationsClose}
-        PaperProps={{
-          sx: {
-            mt: 1,
-            minWidth: 300,
-            maxHeight: 400,
-          }
-        }}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
-        <MenuItem>
-          <Box sx={{ p: 2, width: '100%' }}>
-            <Typography variant="subtitle1" fontWeight={600}>
-              Notifications
-            </Typography>
-          </Box>
-        </MenuItem>
-        <Divider />
-        <MenuItem>
-          <Box sx={{ py: 1 }}>
-            <Typography variant="body2" fontWeight={500}>
-              New comment on your code
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              2 minutes ago
-            </Typography>
-          </Box>
-        </MenuItem>
-        <MenuItem>
-          <Box sx={{ py: 1 }}>
-            <Typography variant="body2" fontWeight={500}>
-              Your code was reviewed
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              1 hour ago
-            </Typography>
-          </Box>
-        </MenuItem>
-        <MenuItem>
-          <Box sx={{ py: 1 }}>
-            <Typography variant="body2" fontWeight={500}>
-              System update available
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              1 day ago
-            </Typography>
-          </Box>
+        <MenuItem onClick={handleNotificationsClose}>
+          No new notifications
         </MenuItem>
       </Menu>
 

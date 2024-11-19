@@ -10,15 +10,45 @@ import {
   Divider,
   Switch,
   FormControlLabel,
-  IconButton
+  IconButton,
+  Tab,
+  Tabs
 } from '@mui/material';
 import { PhotoCamera } from '@mui/icons-material';
 import { useAuthStore } from '../../stores/authStore';
+import { AISettings } from '../settings/AISettings';
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`profile-tabpanel-${index}`}
+      aria-labelledby={`profile-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ p: 3 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
 
 export const ProfilePage = () => {
   const { user, updateUser } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout>();
+  const [tabValue, setTabValue] = useState(0);
   const [formData, setFormData] = useState({
     username: user?.username || '',
     email: user?.email || '',
@@ -103,102 +133,88 @@ export const ProfilePage = () => {
   if (!user) return null;
 
   return (
-    <Box sx={{ maxWidth: 800, mx: 'auto', py: 4 }}>
-      <Paper elevation={3} sx={{ p: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-          <Box sx={{ position: 'relative' }}>
-            <Avatar
-              src={user.profilePicture}
-              sx={{ width: 80, height: 80, mr: 3 }}
-            >
-              {user.username.charAt(0).toUpperCase()}
-            </Avatar>
-            <IconButton
-              sx={{
-                position: 'absolute',
-                bottom: -10,
-                right: 12,
-                backgroundColor: 'background.paper',
-                '&:hover': { backgroundColor: 'action.hover' },
-              }}
-              aria-label="upload picture"
-              component="label"
-              size="small"
-            >
-              <input
-                hidden
-                accept="image/*"
-                type="file"
-                onChange={handleProfilePictureUpload}
-              />
-              <PhotoCamera fontSize="small" />
-            </IconButton>
-          </Box>
-          <Box>
-            <Typography variant="h4">{user.username}</Typography>
-            <Typography variant="body1" color="text.secondary">
-              {user.email}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Role: {user.role}
-            </Typography>
-          </Box>
+    <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
+            <Tab label="Profile" />
+            <Tab label="Editor Settings" />
+            <Tab label="AI Settings" />
+          </Tabs>
         </Box>
 
-        <Divider sx={{ my: 4 }} />
-
-        <form onSubmit={handleSubmit}>
+        <TabPanel value={tabValue} index={0}>
           <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>
-                Profile Settings
-              </Typography>
+            <Grid item xs={12} sm={4}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <Avatar
+                  sx={{ width: 120, height: 120, mb: 2 }}
+                  src={user?.profilePicture}
+                >
+                  {user?.username?.[0]?.toUpperCase()}
+                </Avatar>
+                <input
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  id="avatar-upload"
+                  type="file"
+                  onChange={handleProfilePictureUpload}
+                />
+                <label htmlFor="avatar-upload">
+                  <IconButton component="span">
+                    <PhotoCamera />
+                  </IconButton>
+                </label>
+              </Box>
             </Grid>
-
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={4}
-                label="Bio"
-                name="bio"
-                value={formData.bio}
-                onChange={handleInputChange}
-                placeholder="Tell us about yourself..."
-                helperText="Changes are saved automatically"
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} sm={8}>
               <TextField
                 fullWidth
                 label="Username"
                 name="username"
                 value={formData.username}
                 onChange={handleInputChange}
+                margin="normal"
                 disabled={!isEditing}
               />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Email"
                 name="email"
-                type="email"
                 value={formData.email}
                 onChange={handleInputChange}
+                margin="normal"
                 disabled={!isEditing}
               />
+              <TextField
+                fullWidth
+                label="Bio"
+                name="bio"
+                value={formData.bio}
+                onChange={handleInputChange}
+                margin="normal"
+                multiline
+                rows={4}
+                disabled={!isEditing}
+              />
+              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant={isEditing ? 'contained' : 'outlined'}
+                  onClick={() => setIsEditing(!isEditing)}
+                >
+                  {isEditing ? 'Save Changes' : 'Edit Profile'}
+                </Button>
+              </Box>
             </Grid>
+          </Grid>
+        </TabPanel>
 
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                Editor Settings
+        <TabPanel value={tabValue} index={1}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="h6" gutterBottom>
+                Editor Appearance
               </Typography>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Font Size"
@@ -206,22 +222,16 @@ export const ProfilePage = () => {
                 type="number"
                 value={formData.fontSize}
                 onChange={handleInputChange}
-                disabled={!isEditing}
+                margin="normal"
               />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Font Family"
                 name="fontFamily"
                 value={formData.fontFamily}
                 onChange={handleInputChange}
-                disabled={!isEditing}
+                margin="normal"
               />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Tab Size"
@@ -229,45 +239,46 @@ export const ProfilePage = () => {
                 type="number"
                 value={formData.tabSize}
                 onChange={handleInputChange}
-                disabled={!isEditing}
+                margin="normal"
               />
-            </Grid>
-
-            <Grid item xs={12}>
               <FormControlLabel
                 control={
                   <Switch
-                    name="showLineNumbers"
                     checked={formData.showLineNumbers}
                     onChange={handleInputChange}
-                    disabled={!isEditing}
+                    name="showLineNumbers"
                   />
                 }
                 label="Show Line Numbers"
               />
             </Grid>
-
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => setIsEditing(!isEditing)}
-                >
-                  {isEditing ? 'Cancel' : 'Edit Settings'}
-                </Button>
-                {isEditing && (
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    color="primary"
-                  >
-                    Save Changes
-                  </Button>
-                )}
-              </Box>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="h6" gutterBottom>
+                Theme Settings
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.theme === 'dark'}
+                    onChange={(e) => handleInputChange({
+                      ...e,
+                      target: {
+                        ...e.target,
+                        name: 'theme',
+                        value: e.target.checked ? 'dark' : 'light'
+                      }
+                    })}
+                  />
+                }
+                label="Dark Theme"
+              />
             </Grid>
           </Grid>
-        </form>
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={2}>
+          <AISettings />
+        </TabPanel>
       </Paper>
     </Box>
   );
