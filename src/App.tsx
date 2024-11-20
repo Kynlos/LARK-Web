@@ -1,6 +1,6 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Box } from '@mui/material';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import { MainLayout } from './components/layout/MainLayout';
 import { LoginForm } from './components/auth/LoginForm';
@@ -11,78 +11,123 @@ import { EditorLayout } from './components/editor/EditorLayout';
 import { ProfilePage } from './components/profile/ProfilePage';
 import { SettingsPage } from './components/settings/SettingsPage';
 import { AdminPage } from './components/admin/AdminPage';
+import { FileExplorer } from './components/files/FileExplorer';
+import { ChatPage } from './components/chat/ChatPage';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 function App() {
-  const { isAuthenticated, user } = useAuthStore();
-
+  console.log('App rendering');
+  
   return (
-    <BrowserRouter>
-      <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <ErrorBoundary>
+      <BrowserRouter>
         <Routes>
           <Route
             path="/login"
             element={
-              !isAuthenticated ? (
-                <LoginForm />
-              ) : (
-                <Navigate to="/" replace />
-              )
+              <RouteErrorBoundary>
+                <AuthRedirect>
+                  <LoginForm />
+                </AuthRedirect>
+              </RouteErrorBoundary>
             }
           />
           <Route
             path="/register"
             element={
-              !isAuthenticated ? (
-                <RegisterForm />
-              ) : (
-                <Navigate to="/" replace />
-              )
+              <RouteErrorBoundary>
+                <AuthRedirect>
+                  <RegisterForm />
+                </AuthRedirect>
+              </RouteErrorBoundary>
             }
           />
           <Route
             path="/"
             element={
-              <AuthGuard>
-                <MainLayout>
+              <RouteErrorBoundary>
+                <AuthGuard>
+                  <MainLayout />
+                </AuthGuard>
+              </RouteErrorBoundary>
+            }
+          >
+            <Route 
+              index 
+              element={
+                <RouteErrorBoundary>
                   <EditorLayout />
-                </MainLayout>
-              </AuthGuard>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <AuthGuard>
-                <MainLayout>
+                </RouteErrorBoundary>
+              } 
+            />
+            <Route 
+              path="profile" 
+              element={
+                <RouteErrorBoundary>
                   <ProfilePage />
-                </MainLayout>
-              </AuthGuard>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <AuthGuard>
-                <MainLayout>
+                </RouteErrorBoundary>
+              } 
+            />
+            <Route 
+              path="files/*" 
+              element={
+                <RouteErrorBoundary>
+                  <FileExplorer />
+                </RouteErrorBoundary>
+              } 
+            />
+            <Route 
+              path="chat" 
+              element={
+                <RouteErrorBoundary>
+                  <ChatPage />
+                </RouteErrorBoundary>
+              } 
+            />
+            <Route 
+              path="settings" 
+              element={
+                <RouteErrorBoundary>
                   <SettingsPage />
-                </MainLayout>
-              </AuthGuard>
-            }
-          />
-          <Route
-            path="/admin/*"
-            element={
-              <AuthGuard requiredRole={UserRole.ADMIN}>
-                <MainLayout>
-                  <AdminPage />
-                </MainLayout>
-              </AuthGuard>
-            }
-          />
+                </RouteErrorBoundary>
+              } 
+            />
+            <Route
+              path="admin/*"
+              element={
+                <RouteErrorBoundary>
+                  <AuthGuard requiredRole={UserRole.ADMIN}>
+                    <AdminPage />
+                  </AuthGuard>
+                </RouteErrorBoundary>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
         </Routes>
-      </Box>
-    </BrowserRouter>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
+}
+
+function RouteErrorBoundary({ children }: { children: React.ReactNode }) {
+  return (
+    <ErrorBoundary>
+      {children}
+    </ErrorBoundary>
+  );
+}
+
+function AuthRedirect({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuthStore();
+  console.log('AuthRedirect - isAuthenticated:', isAuthenticated);
+  
+  if (isAuthenticated) {
+    console.log('AuthRedirect - redirecting to /');
+    return <Navigate to="/" replace />;
+  }
+  
+  return <>{children}</>;
 }
 
 export default App;

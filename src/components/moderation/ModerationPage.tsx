@@ -137,20 +137,24 @@ export const ModerationPage = () => {
                     {report.timestamp.toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleAction(report.id, 'approve')}
-                      disabled={report.status !== 'pending'}
-                    >
-                      <ApproveIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleAction(report.id, 'reject')}
-                      disabled={report.status !== 'pending'}
-                    >
-                      <RejectIcon />
-                    </IconButton>
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleAction(report.id, 'approve')}
+                        disabled={report.status !== 'pending'}
+                      >
+                        <ApproveIcon />
+                      </IconButton>
+                    </span>
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleAction(report.id, 'reject')}
+                        disabled={report.status !== 'pending'}
+                      >
+                        <RejectIcon />
+                      </IconButton>
+                    </span>
                     <IconButton
                       size="small"
                       onClick={() => handleViewDetails(report)}

@@ -19,6 +19,7 @@ import {
   InputLabel
 } from '@mui/material';
 import { useAuthStore } from '../../stores/authStore';
+import { AISettings } from './AISettings';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -78,6 +79,7 @@ export const SettingsPage = () => {
             <Tab label="General" />
             <Tab label="Editor" />
             <Tab label="Theme" />
+            <Tab label="AI" />
             <Tab label="Plugins" />
           </Tabs>
         </Box>
@@ -164,6 +166,10 @@ export const SettingsPage = () => {
         </TabPanel>
 
         <TabPanel value={tabValue} index={3}>
+          <AISettings />
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={4}>
           <Typography variant="body1">
             Plugin management coming soon...
           </Typography>
