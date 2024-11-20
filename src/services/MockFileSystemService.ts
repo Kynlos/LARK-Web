@@ -72,7 +72,14 @@ class MockFileSystemService implements FileSystemService {
   }
 
   async createFile(request: CreateFileRequest): Promise<FileOperationResponse> {
-    const existingFile = this.getFileByPath(request.path);
+    // Ensure the path is properly formatted
+    const fullPath = request.path.startsWith('/') ? request.path : `/${request.path}`;
+    
+    // Check if file already exists
+    const existingFile = Array.from(this.files.values()).find(
+      f => f.path === fullPath || f.path === `${fullPath}/${request.name}`
+    );
+    
     if (existingFile) {
       return {
         success: false,
@@ -80,24 +87,67 @@ class MockFileSystemService implements FileSystemService {
       };
     }
 
+    // Create the new file
     const newFile: UserFile = {
       id: this.generateId(),
       name: request.name,
-      path: request.path,
-      type: request.type,
-      size: request.content.length,
+      path: fullPath,
+      type: request.type || 'text/plain',
+      size: request.content?.length || 0,
       isDirectory: request.isDirectory,
-      content: request.content,
+      content: request.content || '',
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
+    // Add to our files map
     this.files.set(newFile.id, newFile);
 
     return {
       success: true,
       message: 'File created successfully',
       file: newFile
+    };
+  }
+
+  async createDirectory(path: string): Promise<FileOperationResponse> {
+    // Ensure the path is properly formatted
+    const fullPath = path.startsWith('/') ? path : `/${path}`;
+    const name = fullPath.split('/').pop() || '';
+    const parentPath = fullPath.substring(0, fullPath.lastIndexOf('/'));
+
+    // Check if directory already exists
+    const existingDir = Array.from(this.files.values()).find(
+      f => f.path === fullPath && f.isDirectory
+    );
+    
+    if (existingDir) {
+      return {
+        success: false,
+        message: 'Directory already exists at this path',
+      };
+    }
+
+    // Create the new directory
+    const newDir: UserFile = {
+      id: this.generateId(),
+      name,
+      path: fullPath,
+      type: 'directory',
+      size: 0,
+      isDirectory: true,
+      content: '',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    // Add to our files map
+    this.files.set(newDir.id, newDir);
+
+    return {
+      success: true,
+      message: 'Directory created successfully',
+      file: newDir
     };
   }
 

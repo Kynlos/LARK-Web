@@ -1,6 +1,6 @@
 import React from 'react';
 import { ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Outlet } from 'react-router-dom';
 import {
   AppBar,
   Box,
@@ -33,7 +33,8 @@ import {
   Notifications as NotificationsIcon,
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
-  Folder as FolderIcon
+  Folder as FolderIcon,
+  Chat as ChatIcon
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { useAuthStore } from '../../stores/authStore';
@@ -43,7 +44,7 @@ import { LordIcon } from '../common/LordIcon';
 const DRAWER_WIDTH = 280;
 
 interface MainLayoutProps {
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 export const MainLayout = ({ children }: MainLayoutProps) => {
@@ -79,26 +80,14 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     navigate('/login');
   };
 
-  const handleFileSystemAccess = async () => {
-    try {
-      const fileSystem = FileSystemService.getInstance();
-      const granted = await fileSystem.requestProjectAccess();
-      if (granted) {
-        const files = await fileSystem.getProjectFiles();
-        // setProjectFiles(files); // This line was commented out because setProjectFiles is not defined
-      } else {
-        // User cancelled or permission denied - continue without filesystem access
-        console.log('File system access not granted - continuing in limited mode');
-      }
-    } catch (error) {
-      console.error('Error accessing file system:', error);
-      // Continue without filesystem access
-    }
+  const handleNavigation = (path: string) => {
+    navigate(path);
   };
 
   const drawerItems = [
     { text: 'Editor', icon: <CodeIcon />, path: '/' },
     { text: 'Files', icon: <FolderIcon />, path: '/files' },
+    { text: 'Chat', icon: <ChatIcon />, path: '/chat' },
     { text: 'Profile', icon: <ProfileIcon />, path: '/profile' },
     ...(user?.role === UserRole.MODERATOR || user?.role === UserRole.ADMIN
       ? [{ text: 'Moderation', icon: <ModeratorIcon />, path: '/moderation' }]
@@ -131,7 +120,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
           <ListItem
             button
             key={item.text}
-            onClick={() => navigate(item.path)}
+            onClick={() => handleNavigation(item.path)}
             sx={{
               mb: 1,
               borderRadius: 2,
@@ -232,23 +221,25 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
               {theme.palette.mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
             </IconButton>
             <Tooltip title="Account settings">
-              <IconButton
-                onClick={handleMenuOpen}
-                size="small"
-                sx={{ ml: 1 }}
-              >
-                <Avatar
-                  src={user?.profilePicture}
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    bgcolor: theme.palette.primary.main,
-                    border: `2px solid ${theme.palette.background.paper}`,
-                  }}
+              <span>
+                <IconButton
+                  onClick={handleMenuOpen}
+                  size="small"
+                  sx={{ ml: 1 }}
                 >
-                  {user?.username.charAt(0).toUpperCase()}
-                </Avatar>
-              </IconButton>
+                  <Avatar
+                    src={user?.profilePicture}
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      bgcolor: theme.palette.primary.main,
+                      border: `2px solid ${theme.palette.background.paper}`,
+                    }}
+                  >
+                    {user?.username.charAt(0).toUpperCase()}
+                  </Avatar>
+                </IconButton>
+              </span>
             </Tooltip>
           </Box>
         </Toolbar>
@@ -304,6 +295,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         }}
       >
         <Toolbar />
+        <Outlet />
         {children}
       </Box>
 
@@ -321,13 +313,13 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
-        <MenuItem onClick={() => navigate('/profile')}>
+        <MenuItem onClick={() => handleNavigation('/profile')}>
           <ListItemIcon>
             <ProfileIcon fontSize="small" />
           </ListItemIcon>
           Profile
         </MenuItem>
-        <MenuItem onClick={() => navigate('/settings')}>
+        <MenuItem onClick={() => handleNavigation('/settings')}>
           <ListItemIcon>
             <SettingsIcon fontSize="small" />
           </ListItemIcon>

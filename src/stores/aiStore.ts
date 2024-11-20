@@ -29,18 +29,14 @@ export const useAIStore = create<AIStore>()(
                     const newSettings = {
                         ...state.settings,
                         providers: newProviders,
-                        activeProvider: state.settings.activeProvider || provider.name
+                        activeProvider: provider.name // Set as active provider when added
                     };
-
-                    if (newSettings.activeProvider === provider.name) {
-                        AIService.getInstance().setProvider(provider);
-                    }
-
                     return {
                         settings: newSettings,
-                        isConfigured: true
+                        isConfigured: true // Set isConfigured to true when provider is added
                     };
                 });
+                AIService.getInstance().setProvider(provider);
             },
 
             removeProvider: (name: string) => {
@@ -96,12 +92,14 @@ export const useAIStore = create<AIStore>()(
                 set((state) => {
                     const provider = state.settings.providers.find(p => p.name === name);
                     if (provider) {
+                        const newSettings = {
+                            ...state.settings,
+                            activeProvider: name
+                        };
                         AIService.getInstance().setProvider(provider);
                         return {
-                            settings: {
-                                ...state.settings,
-                                activeProvider: name
-                            }
+                            settings: newSettings,
+                            isConfigured: true // Ensure isConfigured is true when setting active provider
                         };
                     }
                     return state;

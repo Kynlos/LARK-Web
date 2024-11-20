@@ -13,6 +13,9 @@ src/
 │   │   ├── AuthGuard.tsx   # Auth protection wrapper
 │   │   ├── LoginForm.tsx   # Login form
 │   │   └── RegisterForm.tsx # Registration form
+│   ├── chat/       # AI Chat components
+│   │   ├── ChatPage.tsx    # Main chat interface
+│   │   └── FileSidebar.tsx # File reference sidebar
 │   ├── common/     # Shared components
 │   │   └── LordIcon.tsx    # LordIcon component wrapper
 │   ├── editor/     # Editor components
@@ -49,6 +52,7 @@ src/
 ├── stores/         # State management
 │   ├── aiStore.ts          # AI settings state
 │   ├── authStore.ts        # Authentication state
+│   ├── chatStore.ts        # Chat history and settings
 │   ├── editorStore.ts      # Editor state
 │   └── fileSystemStore.ts  # File system state
 ├── types/          # Type definitions
@@ -75,37 +79,60 @@ LARK Web is a modern, extensible web-based editor designed for writers, featurin
   - File sharing capabilities
   - Automatic saving
   - Full-screen mode
+  - Real-time file syncing
+  - Intelligent path handling
+  - Automatic conflict resolution
 
-- **AI Writing Assistance**
-  - Easy setup for any OpenAI-compatible API provider
+- **AI Integration**
+  - Interactive AI chat interface
+  - File context integration
+  - Multiple chat conversations
+  - Persistent chat history
+  - Temperature and token controls
+  - File reference support with auto-complete
+  - Line range references
+  - Open and recent files tracking
+  - OpenAI-compatible API providers
   - Text improvement suggestions
   - Story continuation assistance
   - Creative brainstorming
   - Real-time writing feedback
   - Customizable AI parameters
   - Secure API key management
-  - Quick access through editor toolbar
-  - Configurable in both profile and settings pages
-  - Multiple AI provider support
+  - Quick access through editor
+  - Multiple provider support
   - Custom prompts and instructions
-  - Context-aware suggestions
-  - Adjustable model parameters (temperature, tokens)
 
-- **User Management**
-  - User profiles and preferences
-  - Secure authentication
-  - Personal file storage
-  - File sharing capabilities
-  - Customizable editor settings
+- **File Management**
+  - Advanced file explorer
+  - Real-time file syncing
+  - Automatic file opening
+  - Intelligent path handling
+  - Instant file creation
+  - Directory structure support
+  - File metadata tracking
+  - Error recovery system
+  - File status monitoring
+  - Cross-component synchronization
 
-- **File System**
-  - Cloud-based file storage
-  - Directory management
-  - File sharing with public links
-  - Bulk file operations
-  - File export and backup
-  - Move and copy operations
-  - Automatic file organization
+- **User Interface**
+  - Modern, clean design
+  - Light and dark themes
+  - Customizable layout
+  - Quick action bar
+  - File preview
+  - Split view support
+  - Full keyboard navigation
+  - Responsive design
+
+- **Development Features**
+  - Plugin system
+  - Custom theme support
+  - API provider integration
+  - Development mode
+  - Mock file system
+  - Error handling
+  - Performance optimization
 
 ## Getting Started
 

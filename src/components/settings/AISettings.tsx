@@ -24,9 +24,9 @@ import { AIProviderSettings } from '../../types/ai';
 
 const DEFAULT_PROVIDER = {
     name: '',
-    apiEndpoint: 'https://api.openai.com',
+    apiEndpoint: 'https://api.groq.com',
     apiKey: '',
-    modelName: 'gpt-3.5-turbo',
+    modelName: 'llama3-8b-8192',
     temperature: 0.7,
     maxTokens: 2000,
 };
@@ -173,7 +173,7 @@ export const AISettings: React.FC = () => {
                         value={formData.apiEndpoint}
                         onChange={(e) => setFormData({ ...formData, apiEndpoint: e.target.value })}
                         margin="normal"
-                        placeholder="https://api.openai.com"
+                        placeholder="https://api.groq.com"
                     />
                     <TextField
                         fullWidth
@@ -189,7 +189,7 @@ export const AISettings: React.FC = () => {
                         value={formData.modelName}
                         onChange={(e) => setFormData({ ...formData, modelName: e.target.value })}
                         margin="normal"
-                        placeholder="gpt-3.5-turbo"
+                        placeholder="llama3-8b-8192"
                     />
                     <TextField
                         fullWidth

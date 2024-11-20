@@ -1,6 +1,6 @@
 # API Migration Guide
 
-This guide explains how to transition from the mock file system to a real backend API implementation.
+This guide explains how to transition from the mock file system to a real backend API implementation and integrate with AI services.
 
 ## Current Mock Implementation
 
@@ -134,6 +134,163 @@ Implement proper error handling in your backend and ensure it returns appropriat
    - Deep directory structures
    - Concurrent operations
 
+## AI Service Integration
+
+### AI Provider Configuration
+
+The application supports multiple AI providers through a flexible configuration system. Each provider must implement the following API endpoints:
+
+#### Chat Completion
+```typescript
+// POST {apiEndpoint}/v1/chat/completions
+Request: {
+  model: string;          // e.g., "gpt-3.5-turbo"
+  messages: Array<{
+    role: "system" | "user" | "assistant";
+    content: string;
+  }>;
+  temperature?: number;   // 0.0-1.0
+  max_tokens?: number;    // e.g., 2000
+  stream?: boolean;       // For streaming responses
+}
+
+Response: {
+  choices: Array<{
+    message: {
+      role: "assistant";
+      content: string;
+    };
+    finish_reason: string;
+  }>;
+}
+```
+
+### Implementing a Custom AI Provider
+
+1. **Create Provider Configuration**:
+```typescript
+const provider: AIProviderSettings = {
+  name: "Custom Provider",
+  apiEndpoint: "https://api.custom-provider.com",
+  apiKey: "your-api-key",
+  modelName: "custom-model",
+  temperature: 0.7,
+  maxTokens: 2000
+};
+```
+
+2. **Register the Provider**:
+```typescript
+const aiStore = useAIStore();
+aiStore.addProvider(provider);
+```
+
+3. **Use the Provider**:
+```typescript
+const aiService = new AIService(provider);
+const result = await aiService.improveText(text, prompt);
+```
+
+### Security Considerations
+
+1. **API Key Storage**:
+   - Store API keys securely in the user's profile
+   - Never expose keys in client-side code
+   - Use environment variables for default providers
+
+2. **Request/Response Security**:
+   - Encrypt all API communications
+   - Validate input before sending to AI
+   - Sanitize AI responses before display
+
+3. **Rate Limiting**:
+   - Implement token usage tracking
+   - Add request throttling
+   - Monitor API usage
+
+### Error Handling
+
+1. **API Errors**:
+```typescript
+try {
+  const result = await aiService.improveText(text, prompt);
+} catch (error) {
+  if (error instanceof AIServiceError) {
+    // Handle specific AI service errors
+    console.error('AI Service Error:', error.message);
+  } else {
+    // Handle general errors
+    console.error('Unexpected error:', error);
+  }
+}
+```
+
+2. **Common Error Types**:
+   - Authentication errors (invalid API key)
+   - Rate limit exceeded
+   - Invalid input format
+   - Model not available
+   - Context length exceeded
+   - Network errors
+
+### Best Practices
+
+1. **Provider Selection**:
+   - Allow users to choose their preferred provider
+   - Support fallback providers
+   - Cache provider availability
+
+2. **Performance**:
+   - Implement response caching
+   - Use streaming for long responses
+   - Batch similar requests
+
+3. **User Experience**:
+   - Show loading states during AI operations
+   - Provide clear error messages
+   - Allow cancellation of requests
+   - Save user preferences
+
+### Configuration
+
+The AI service is designed to work with any OpenAI-compatible API. Configure providers through the AI Settings interface or programmatically:
+
+```typescript
+import { AIService } from '../services/AIService';
+import { AIProvider } from '../types/ai';
+
+const provider: AIProvider = {
+  name: 'OpenAI',
+  apiEndpoint: 'https://api.openai.com',
+  apiKey: 'your-api-key',
+  modelName: 'gpt-3.5-turbo',
+  temperature: 0.7,
+  maxTokens: 2000
+};
+
+const aiService = new AIService(provider);
+```
+
+### Usage Example
+
+```typescript
+// Text improvement
+const improvedText = await aiService.improveText(
+  'The cat sat on mat.',
+  'Make this more descriptive'
+);
+
+// Story continuation
+const continuation = await aiService.suggestContinuation(
+  'Once upon a time in a dark forest...'
+);
+
+// Brainstorming
+const ideas = await aiService.brainstorm(
+  'Story ideas about a time-traveling detective'
+);
+```
+
 ## Troubleshooting
 
 ### Common Issues
@@ -157,3 +314,48 @@ If you encounter issues:
 2. Verify network requests in browser dev tools
 3. Review backend logs
 4. Ensure all types match between frontend and backend
+
+## Security Considerations
+
+1. **API Keys**: Never expose API keys in the client-side code. Use environment variables or secure storage.
+
+2. **File Access**: The File System Access API requires explicit user permission for each operation.
+
+3. **AI Provider Settings**: Store API keys securely and validate all API responses.
+
+## Best Practices
+
+1. **Error Handling**: Always wrap API calls in try-catch blocks:
+   ```typescript
+   try {
+     const result = await aiService.improveText(text, prompt);
+   } catch (error) {
+     console.error('AI service error:', error);
+     // Handle error appropriately
+   }
+   ```
+
+2. **Type Safety**: Use the provided TypeScript interfaces:
+   ```typescript
+   import { AIProvider, AIResponse } from '../types/ai';
+   import { FileSystemNode } from '../types/fileSystem';
+   ```
+
+3. **State Management**: Use the provided stores:
+   ```typescript
+   import { useAIStore } from '../stores/aiStore';
+   import { useFileSystemStore } from '../stores/fileSystemStore';
+   ```
+
+## Migration Checklist
+
+- [ ] Update environment variables
+- [ ] Configure AI providers
+- [ ] Test file system operations
+- [ ] Verify AI integration
+- [ ] Check error handling
+- [ ] Update security settings
+- [ ] Test user permissions
+- [ ] Validate API responses
+- [ ] Monitor performance
+- [ ] Update documentation

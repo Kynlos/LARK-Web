@@ -14,7 +14,12 @@ import {
   CircularProgress,
   Snackbar,
   Menu,
-  MenuItem
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  Toolbar,
+  ButtonGroup,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -22,6 +27,26 @@ import {
   Settings as SettingsIcon,
   Fullscreen as FullscreenIcon,
   FullscreenExit as FullscreenExitIcon,
+  FormatBold as FormatBoldIcon,
+  FormatItalic as FormatItalicIcon,
+  FormatUnderlined as FormatUnderlinedIcon,
+  FormatStrikethrough as FormatStrikethroughIcon,
+  FormatListBulleted as FormatListBulletedIcon,
+  FormatListNumbered as FormatListNumberedIcon,
+  FormatQuote as FormatQuoteIcon,
+  Code as CodeIcon,
+  Link as LinkIcon,
+  Image as ImageIcon,
+  TableChart as TableIcon,
+  Undo as UndoIcon,
+  Redo as RedoIcon,
+  ContentCut as CutIcon,
+  ContentCopy as CopyIcon,
+  ContentPaste as PasteIcon,
+  Search as SearchIcon,
+  FindReplace as FindReplaceIcon,
+  FormatClear as ClearFormattingIcon,
+  AutoFixHigh as AIIcon,
 } from '@mui/icons-material';
 import { LordIcon } from '../common/LordIcon';
 import MonacoEditor from '@monaco-editor/react';
@@ -29,6 +54,8 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useAuthStore } from '../../stores/authStore';
 import * as monaco from 'monaco-editor';
 import { AIWritingAssistant } from './AIWritingAssistant';
+import QuickActionBar from './QuickActionBar';
+import AISettingsDialog from '../settings/AISettingsDialog';
 
 export const CodeEditor = () => {
   const { activeFile, updateFileContent, saveFile, isDirty } = useEditorStore();
@@ -40,6 +67,7 @@ export const CodeEditor = () => {
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedText, setSelectedText] = useState('');
+  const [isAISettingsOpen, setIsAISettingsOpen] = useState(false);
   const theme = useTheme();
   const [notificationsAnchor, setNotificationsAnchor] = React.useState<null | HTMLElement>(null);
 
@@ -107,13 +135,93 @@ export const CodeEditor = () => {
   };
 
   const handleEditorChange = (value: string | undefined) => {
-    if (value !== undefined) {
+    if (value !== undefined && activeFile) {
       updateFileContent(activeFile.id, value);
     }
   };
 
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
+  };
+
+  const handleFormatText = (format: string) => {
+    if (editorRef.current) {
+      const editor = editorRef.current;
+      const selection = editor.getSelection();
+      const model = editor.getModel();
+      
+      if (!selection || !model) return;
+      
+      const selectedText = model.getValueInRange(selection);
+      let formattedText = selectedText;
+      
+      switch (format) {
+        case 'bold':
+          formattedText = `**${selectedText}**`;
+          break;
+        case 'italic':
+          formattedText = `*${selectedText}*`;
+          break;
+        case 'underline':
+          formattedText = `__${selectedText}__`;
+          break;
+        case 'strikethrough':
+          formattedText = `~~${selectedText}~~`;
+          break;
+        case 'bullet':
+          formattedText = selectedText
+            .split('\n')
+            .map(line => `- ${line}`)
+            .join('\n');
+          break;
+        case 'number':
+          formattedText = selectedText
+            .split('\n')
+            .map((line, i) => `${i + 1}. ${line}`)
+            .join('\n');
+          break;
+        case 'quote':
+          formattedText = selectedText
+            .split('\n')
+            .map(line => `> ${line}`)
+            .join('\n');
+          break;
+        case 'code':
+          formattedText = `\`\`\`\n${selectedText}\n\`\`\``;
+          break;
+        case 'link':
+          formattedText = `[${selectedText}](url)`;
+          break;
+        case 'image':
+          formattedText = `![${selectedText}](image-url)`;
+          break;
+        case 'table':
+          formattedText = `| Column 1 | Column 2 | Column 3 |\n|----------|----------|----------|\n| Cell 1   | Cell 2   | Cell 3   |`;
+          break;
+        case 'clear':
+          // Remove markdown formatting
+          formattedText = selectedText
+            .replace(/[*_~`#>]/g, '')
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+          break;
+      }
+      
+      editor.executeEdits('formatting', [{
+        range: selection,
+        text: formattedText
+      }]);
+    }
+  };
+
+  const getSelectedText = () => {
+    if (editorRef.current) {
+      const editor = editorRef.current;
+      const selection = editor.getSelection();
+      if (selection) {
+        return editor.getModel()?.getValueInRange(selection) || '';
+      }
+    }
+    return '';
   };
 
   return (
@@ -137,12 +245,13 @@ export const CodeEditor = () => {
         sx={{
           p: 1,
           display: 'flex',
-          alignItems: 'center',
+          flexDirection: 'column',
           gap: 1,
           borderBottom: 1,
           borderColor: 'divider',
         }}
       >
+        {/* Top Toolbar */}
         <Stack direction="row" spacing={1} sx={{ flexGrow: 1 }}>
           {isDirty && (
             <Chip
@@ -153,48 +262,198 @@ export const CodeEditor = () => {
           )}
         </Stack>
 
-        <Stack direction="row" spacing={1}>
-          <Tooltip title="Save (Ctrl+S)">
-            <IconButton
-              onClick={handleSave}
-              disabled={!isDirty || saving}
-            >
-              {saving ? (
-                <CircularProgress size={24} />
-              ) : (
-                <SaveIcon />
-              )}
-            </IconButton>
-          </Tooltip>
+        {/* Editor Toolbar */}
+        <Toolbar variant="dense" disableGutters sx={{ minHeight: 40 }}>
+          {/* History Controls */}
+          <ButtonGroup size="small" sx={{ mr: 2 }}>
+            <Tooltip title="Undo (Ctrl+Z)">
+              <IconButton onClick={() => editorRef.current?.trigger('', 'undo', null)}>
+                <UndoIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Redo (Ctrl+Y)">
+              <IconButton onClick={() => editorRef.current?.trigger('', 'redo', null)}>
+                <RedoIcon />
+              </IconButton>
+            </Tooltip>
+          </ButtonGroup>
 
-          <Tooltip title="Share">
-            <IconButton>
-              <ShareIcon />
-            </IconButton>
-          </Tooltip>
+          <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
 
-          <Tooltip title="Notifications">
-            <IconButton onClick={handleNotificationsClick}>
-              <LordIcon
-                icon="psnhyobz"
-                size={24}
-                state="hover-bell"
-              />
-            </IconButton>
-          </Tooltip>
+          {/* Clipboard */}
+          <ButtonGroup size="small" sx={{ mr: 2 }}>
+            <Tooltip title="Cut (Ctrl+X)">
+              <IconButton onClick={() => document.execCommand('cut')}>
+                <CutIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Copy (Ctrl+C)">
+              <IconButton onClick={() => document.execCommand('copy')}>
+                <CopyIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Paste (Ctrl+V)">
+              <IconButton onClick={() => document.execCommand('paste')}>
+                <PasteIcon />
+              </IconButton>
+            </Tooltip>
+          </ButtonGroup>
 
-          <Tooltip title="Settings">
-            <IconButton>
-              <SettingsIcon />
-            </IconButton>
-          </Tooltip>
+          <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
 
-          <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
-            <IconButton onClick={toggleFullscreen}>
-              {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
-            </IconButton>
-          </Tooltip>
-        </Stack>
+          {/* Text Formatting */}
+          <ButtonGroup size="small" sx={{ mr: 2 }}>
+            <Tooltip title="Bold">
+              <IconButton onClick={() => handleFormatText('bold')}>
+                <FormatBoldIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Italic">
+              <IconButton onClick={() => handleFormatText('italic')}>
+                <FormatItalicIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Underline">
+              <IconButton onClick={() => handleFormatText('underline')}>
+                <FormatUnderlinedIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Strikethrough">
+              <IconButton onClick={() => handleFormatText('strikethrough')}>
+                <FormatStrikethroughIcon />
+              </IconButton>
+            </Tooltip>
+          </ButtonGroup>
+
+          <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+
+          {/* Lists */}
+          <ButtonGroup size="small" sx={{ mr: 2 }}>
+            <Tooltip title="Bullet List">
+              <IconButton onClick={() => handleFormatText('bullet')}>
+                <FormatListBulletedIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Numbered List">
+              <IconButton onClick={() => handleFormatText('number')}>
+                <FormatListNumberedIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Quote">
+              <IconButton onClick={() => handleFormatText('quote')}>
+                <FormatQuoteIcon />
+              </IconButton>
+            </Tooltip>
+          </ButtonGroup>
+
+          <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+
+          {/* Insert */}
+          <ButtonGroup size="small" sx={{ mr: 2 }}>
+            <Tooltip title="Code Block">
+              <IconButton onClick={() => handleFormatText('code')}>
+                <CodeIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Link">
+              <IconButton onClick={() => handleFormatText('link')}>
+                <LinkIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Image">
+              <IconButton onClick={() => handleFormatText('image')}>
+                <ImageIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Table">
+              <IconButton onClick={() => handleFormatText('table')}>
+                <TableIcon />
+              </IconButton>
+            </Tooltip>
+          </ButtonGroup>
+
+          <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+
+          {/* Find & Replace */}
+          <ButtonGroup size="small" sx={{ mr: 2 }}>
+            <Tooltip title="Find (Ctrl+F)">
+              <IconButton onClick={() => editorRef.current?.trigger('', 'actions.find', null)}>
+                <SearchIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Replace (Ctrl+H)">
+              <IconButton onClick={() => editorRef.current?.trigger('', 'editor.action.startFindReplaceAction', null)}>
+                <FindReplaceIcon />
+              </IconButton>
+            </Tooltip>
+          </ButtonGroup>
+
+          <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+
+          {/* Clear & AI */}
+          <ButtonGroup size="small" sx={{ mr: 2 }}>
+            <Tooltip title="Clear Formatting">
+              <IconButton onClick={() => handleFormatText('clear')}>
+                <ClearFormattingIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="AI Assistance">
+              <IconButton>
+                <AIIcon />
+              </IconButton>
+            </Tooltip>
+          </ButtonGroup>
+
+          {/* Right-aligned buttons */}
+          <Box sx={{ flexGrow: 1 }} />
+          
+          <ButtonGroup size="small">
+            <Tooltip title="Save (Ctrl+S)">
+              <IconButton
+                onClick={handleSave}
+                disabled={!isDirty || saving}
+              >
+                {saving ? (
+                  <CircularProgress size={24} />
+                ) : (
+                  <SaveIcon />
+                )}
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Share">
+              <IconButton>
+                <ShareIcon />
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Notifications">
+              <IconButton onClick={handleNotificationsClick}>
+                <LordIcon
+                  src="https://cdn.lordicon.com/psnhyobz.json"
+                  trigger="hover"
+                  size={24}
+                  colors={{
+                    primary: "#808080",
+                    secondary: "#121331"
+                  }}
+                />
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="AI Settings">
+              <IconButton onClick={() => setIsAISettingsOpen(true)}>
+                <SettingsIcon />
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+              <IconButton onClick={toggleFullscreen}>
+                {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+              </IconButton>
+            </Tooltip>
+          </ButtonGroup>
+        </Toolbar>
       </Box>
 
       <Box sx={{ flexGrow: 1, position: 'relative' }}>
@@ -221,6 +480,12 @@ export const CodeEditor = () => {
           onInsertText={handleInsertText}
           onReplaceText={handleReplaceText}
         />
+
+        <QuickActionBar
+          onFormatText={handleFormatText}
+          onAIAction={handleReplaceText}
+          getSelectedText={getSelectedText}
+        />
       </Box>
 
       <Menu
@@ -238,6 +503,11 @@ export const CodeEditor = () => {
         autoHideDuration={6000}
         onClose={() => setSaveError(null)}
         message={saveError}
+      />
+
+      <AISettingsDialog
+        open={isAISettingsOpen}
+        onClose={() => setIsAISettingsOpen(false)}
       />
     </Box>
   );

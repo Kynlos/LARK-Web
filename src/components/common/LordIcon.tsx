@@ -30,7 +30,13 @@ export const LordIcon: React.FC<LordIconProps> = ({
     const loadAnimation = async () => {
       try {
         const response = await fetch(src);
-        if (!response.ok) throw new Error('Failed to load icon');
+        if (!response.ok) {
+          throw new Error(`Failed to load icon: ${response.status} ${response.statusText}`);
+        }
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Invalid response: Expected JSON but received ' + contentType);
+        }
         const animationData = await response.json();
 
         // Apply colors to the animation data if provided

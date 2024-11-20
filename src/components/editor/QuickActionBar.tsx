@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
 import {
   Box,
-  SpeedDial,
-  SpeedDialAction,
-  SpeedDialIcon,
-  Tooltip,
-  IconButton,
   Popover,
   Paper,
   Typography,
   TextField,
   Button,
+  Tooltip,
+  IconButton,
+  Stack,
 } from '@mui/material';
 import FormatBoldIcon from '@mui/icons-material/FormatBold';
 import FormatItalicIcon from '@mui/icons-material/FormatItalic';
@@ -35,11 +33,31 @@ export const QuickActionBar: React.FC<QuickActionBarProps> = ({
   onAIAction,
   getSelectedText,
 }) => {
-  const [open, setOpen] = useState(false);
-  const [isClickOpen, setIsClickOpen] = useState(false);
+  const { activeProvider } = useAIStore();
   const [aiMenuAnchor, setAiMenuAnchor] = useState<null | HTMLElement>(null);
   const [customPrompt, setCustomPrompt] = useState('');
-  const { activeProvider } = useAIStore();
+
+  const formatActions = [
+    { icon: <FormatBoldIcon />, name: 'Bold', action: 'bold' },
+    { icon: <FormatItalicIcon />, name: 'Italic', action: 'italic' },
+    { icon: <FormatListBulletedIcon />, name: 'Bullet List', action: 'bullet' },
+    { icon: <FormatListNumberedIcon />, name: 'Numbered List', action: 'number' },
+  ];
+
+  const aiActions = [
+    { icon: <AutoFixHighIcon />, name: 'Improve Writing', action: 'improve' },
+    { icon: <CreateIcon />, name: 'Continue Writing', action: 'continue' },
+    { icon: <LightbulbIcon />, name: 'Brainstorm Ideas', action: 'brainstorm' },
+    { icon: <PsychologyIcon />, name: 'Custom Prompt', action: 'custom' },
+  ];
+
+  const handleCustomPrompt = () => {
+    if (customPrompt.trim()) {
+      handleAIAction('custom', customPrompt);
+      setCustomPrompt('');
+      setAiMenuAnchor(null);
+    }
+  };
 
   const handleAIAction = async (action: string, customInput: string = '') => {
     if (!activeProvider) {
@@ -81,28 +99,6 @@ export const QuickActionBar: React.FC<QuickActionBarProps> = ({
     }
   };
 
-  const formatActions = [
-    { icon: <FormatBoldIcon />, name: 'Bold', action: 'bold' },
-    { icon: <FormatItalicIcon />, name: 'Italic', action: 'italic' },
-    { icon: <FormatListBulletedIcon />, name: 'Bullet List', action: 'bullet' },
-    { icon: <FormatListNumberedIcon />, name: 'Numbered List', action: 'number' },
-  ];
-
-  const aiActions = [
-    { icon: <AutoFixHighIcon />, name: 'Improve Writing', action: 'improve' },
-    { icon: <CreateIcon />, name: 'Continue Writing', action: 'continue' },
-    { icon: <LightbulbIcon />, name: 'Brainstorm Ideas', action: 'brainstorm' },
-    { icon: <PsychologyIcon />, name: 'Custom Prompt', action: 'custom' },
-  ];
-
-  const handleCustomPrompt = () => {
-    if (customPrompt.trim()) {
-      handleAIAction('custom', customPrompt);
-      setCustomPrompt('');
-      setAiMenuAnchor(null);
-    }
-  };
-
   return (
     <Box sx={{ position: 'fixed', bottom: 16, right: 16, zIndex: 1000 }}>
       {/* Custom Prompt Popover */}
@@ -134,68 +130,75 @@ export const QuickActionBar: React.FC<QuickActionBarProps> = ({
             size="small"
             sx={{ mb: 2 }}
           />
-          <Tooltip title={customPrompt.trim() ? '' : 'Please enter a prompt'}>
-            <span>
-              <Button
-                fullWidth
-                variant="contained"
-                onClick={handleCustomPrompt}
-                disabled={!customPrompt.trim()}
-              >
-                Apply
-              </Button>
-            </span>
-          </Tooltip>
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={handleCustomPrompt}
+            disabled={!customPrompt.trim()}
+          >
+            Apply
+          </Button>
         </Paper>
       </Popover>
 
-      {/* Main Speed Dial */}
-      <SpeedDial
-        ariaLabel="Quick Actions"
-        icon={
-          <SpeedDialIcon 
-            icon={
-              <LordIcon
-                src="https://cdn.lordicon.com/wloilxuq.json"
-                trigger="hover"
-                size={23}
-                colors={{
-                  primary: "#808080",
-                  secondary: "#121331"
-                }}
-              />
-            }
-          />
-        }
-        open={open || isClickOpen}
-        onOpen={() => setOpen(true)}
-        onClose={() => setOpen(false)}
-        onClick={() => setIsClickOpen(!isClickOpen)}
-        onMouseLeave={() => setOpen(false)}
-      >
-        {formatActions.map((action) => (
-          <SpeedDialAction
-            key={action.name}
-            icon={action.icon}
-            tooltipTitle={action.name}
-            onClick={() => onFormatText(action.action)}
-            disabled={!getSelectedText()}
-          />
-        ))}
-        {aiActions.map((action) => (
-          <SpeedDialAction
-            key={action.name}
-            icon={action.icon}
-            tooltipTitle={action.name}
-            onClick={(e) =>
-              action.action === 'custom'
-                ? setAiMenuAnchor(e.currentTarget)
-                : handleAIAction(action.action)
-            }
-            disabled={!getSelectedText() || !activeProvider}
-          />
-        ))}
-      </SpeedDial>
+      {/* Action Buttons */}
+      <Paper elevation={3} sx={{ p: 1, borderRadius: 2 }}>
+        <Stack direction="row" spacing={1}>
+          {formatActions.map((action) => {
+            const disabled = !getSelectedText();
+            return (
+              <Tooltip
+                key={action.name}
+                title={disabled ? 'Please select text first' : action.name}
+                disableHoverListener={disabled}
+              >
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={() => onFormatText(action.action)}
+                    disabled={disabled}
+                    sx={{ opacity: disabled ? 0.5 : 1 }}
+                  >
+                    {action.icon}
+                  </IconButton>
+                </span>
+              </Tooltip>
+            );
+          })}
+          <Box sx={{ borderLeft: 1, borderColor: 'divider', mx: 1 }} />
+          {aiActions.map((action) => {
+            const disabled = !getSelectedText() || !activeProvider;
+            const tooltipTitle = !getSelectedText()
+              ? 'Please select text first'
+              : !activeProvider
+                ? 'Please configure an AI provider in settings'
+                : action.name;
+            
+            return (
+              <Tooltip
+                key={action.name}
+                title={tooltipTitle}
+                disableHoverListener={disabled}
+              >
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={(e) =>
+                      action.action === 'custom'
+                        ? setAiMenuAnchor(e.currentTarget)
+                        : handleAIAction(action.action)
+                    }
+                    disabled={disabled}
+                    sx={{ opacity: disabled ? 0.5 : 1 }}
+                  >
+                    {action.icon}
+                  </IconButton>
+                </span>
+              </Tooltip>
+            );
+          })}
+        </Stack>
+      </Paper>
     </Box>
   );
 };

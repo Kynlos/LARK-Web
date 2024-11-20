@@ -130,17 +130,19 @@ export const AIWritingAssistant: React.FC<AIWritingAssistantProps> = ({
         <>
             <Box sx={{ position: 'absolute', right: 16, top: 16, zIndex: 1 }}>
                 <Tooltip title="AI Writing Assistant">
-                    <IconButton
-                        onClick={handleClick}
-                        color="primary"
-                        sx={{
-                            backgroundColor: 'background.paper',
-                            boxShadow: 1,
-                            '&:hover': { backgroundColor: 'background.paper' },
-                        }}
-                    >
-                        <AutoFixHigh />
-                    </IconButton>
+                    <span>
+                        <IconButton
+                            onClick={handleClick}
+                            color="primary"
+                            sx={{
+                                backgroundColor: 'background.paper',
+                                boxShadow: 1,
+                                '&:hover': { backgroundColor: 'background.paper' },
+                            }}
+                        >
+                            <ImproveIcon />
+                        </IconButton>
+                    </span>
                 </Tooltip>
             </Box>
 

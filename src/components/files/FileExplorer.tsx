@@ -13,6 +13,10 @@ import {
   TextField,
   Typography,
   Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Tooltip,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -20,8 +24,10 @@ import {
   CloudUpload as CloudUploadIcon,
   Download as DownloadIcon,
   Search as SearchIcon,
+  NoteAdd as NoteAddIcon,
 } from '@mui/icons-material';
 import { useFileSystemStore } from '../../stores/fileSystemStore';
+import { useEditorStore } from '../../stores/editorStore';
 import { FilePreview } from './FilePreview';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -37,12 +43,22 @@ export const FileExplorer: React.FC = () => {
     createDirectory,
     listFiles,
     searchFiles,
+    createFile,
   } = useFileSystemStore();
+
+  const { openFile } = useEditorStore();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFile, setSelectedFile] = useState<any>(null);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
+  const [newItemDialog, setNewItemDialog] = useState<{
+    open: boolean;
+    type: 'file' | 'folder';
+    name: string;
+  }>({
+    open: false,
+    type: 'file',
+    name: '',
+  });
 
   useEffect(() => {
     // Initialize with the user's root directory
@@ -56,27 +72,61 @@ export const FileExplorer: React.FC = () => {
     const files = event.target.files;
     if (files && files.length > 0) {
       for (let i = 0; i < files.length; i++) {
-        await uploadFile(files[i], currentPath);
+        await uploadFile(currentPath, files[i]);
       }
       listFiles(currentPath);
     }
   };
 
-  const handleCreateDirectory = async () => {
-    if (newFolderName) {
-      await createDirectory(currentPath + '/' + newFolderName);
-      setNewFolderName('');
-      setShowNewFolderDialog(false);
-      listFiles(currentPath);
+  const handleCreateItem = async () => {
+    const { type, name } = newItemDialog;
+    if (name) {
+      try {
+        if (type === 'folder') {
+          await createDirectory(`${currentPath}/${name}`);
+        } else {
+          const fullPath = `${currentPath}/${name}`;
+          const response = await createFile({
+            name,
+            path: fullPath,
+            type: 'text/plain',
+            isDirectory: false,
+            content: '',
+          });
+          
+          // If file creation was successful and we got a file back
+          if (response?.file) {
+            // Open the new file in the editor
+            await openFile(response.file.id);
+          }
+        }
+        
+        // Refresh the file list
+        await listFiles(currentPath);
+        
+        // Close the dialog
+        setNewItemDialog({ open: false, type: 'file', name: '' });
+      } catch (error) {
+        console.error('Failed to create item:', error);
+        // TODO: Show error to user
+      }
     }
   };
 
-  const handleFileClick = (file: any) => {
+  const handleFileClick = async (file: any) => {
     if (file.isDirectory) {
       setCurrentPath(currentPath + '/' + file.name);
       listFiles(currentPath + '/' + file.name);
     } else {
-      setSelectedFile(file);
+      try {
+        // First open the file in the editor
+        await openFile(file.id);
+        // Then show the preview
+        setSelectedFile(file);
+      } catch (error) {
+        console.error('Failed to open file:', error);
+        // TODO: Show error to user
+      }
     }
   };
 
@@ -96,7 +146,7 @@ export const FileExplorer: React.FC = () => {
     
     if (droppedFiles) {
       for (let i = 0; i < droppedFiles.length; i++) {
-        await uploadFile(droppedFiles[i], currentPath);
+        await uploadFile(currentPath, droppedFiles[i]);
       }
       listFiles(currentPath);
     }
@@ -130,21 +180,34 @@ export const FileExplorer: React.FC = () => {
           id="file-upload"
         />
         <label htmlFor="file-upload">
-          <Button
-            component="span"
-            variant="contained"
-            startIcon={<CloudUploadIcon />}
-          >
-            Upload
-          </Button>
+          <Tooltip title="Upload files">
+            <Button
+              component="span"
+              variant="contained"
+              startIcon={<CloudUploadIcon />}
+            >
+              Upload
+            </Button>
+          </Tooltip>
         </label>
-        <Button
-          variant="outlined"
-          startIcon={<CreateNewFolderIcon />}
-          onClick={() => setShowNewFolderDialog(true)}
-        >
-          New Folder
-        </Button>
+        <Tooltip title="Create new folder">
+          <Button
+            variant="outlined"
+            startIcon={<CreateNewFolderIcon />}
+            onClick={() => setNewItemDialog({ open: true, type: 'folder', name: '' })}
+          >
+            New Folder
+          </Button>
+        </Tooltip>
+        <Tooltip title="Create new file">
+          <Button
+            variant="outlined"
+            startIcon={<NoteAddIcon />}
+            onClick={() => setNewItemDialog({ open: true, type: 'file', name: '' })}
+          >
+            New File
+          </Button>
+        </Tooltip>
       </Box>
 
       <Paper
@@ -177,7 +240,7 @@ export const FileExplorer: React.FC = () => {
                     <IconButton
                       onClick={(e) => {
                         e.stopPropagation();
-                        downloadFile(file);
+                        downloadFile(file.id);
                       }}
                     >
                       <DownloadIcon />
@@ -185,7 +248,7 @@ export const FileExplorer: React.FC = () => {
                     <IconButton
                       onClick={(e) => {
                         e.stopPropagation();
-                        deleteFile(file);
+                        deleteFile(file.id);
                       }}
                     >
                       <DeleteIcon />
@@ -205,28 +268,34 @@ export const FileExplorer: React.FC = () => {
         />
       )}
 
-      <Dialog open={showNewFolderDialog} onClose={() => setShowNewFolderDialog(false)}>
-        <Box sx={{ p: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>Create New Folder</Typography>
+      <Dialog
+        open={newItemDialog.open}
+        onClose={() => setNewItemDialog({ open: false, type: 'file', name: '' })}
+      >
+        <DialogTitle>
+          Create New {newItemDialog.type === 'folder' ? 'Folder' : 'File'}
+        </DialogTitle>
+        <DialogContent>
           <TextField
+            autoFocus
+            margin="dense"
+            label="Name"
             fullWidth
-            value={newFolderName}
-            onChange={(e) => setNewFolderName(e.target.value)}
-            placeholder="Folder name"
-            sx={{ mb: 2 }}
+            value={newItemDialog.name}
+            onChange={(e) => setNewItemDialog({ ...newItemDialog, name: e.target.value })}
           />
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button onClick={() => setShowNewFolderDialog(false)}>Cancel</Button>
-            <Button
-              variant="contained"
-              onClick={handleCreateDirectory}
-              disabled={!newFolderName}
-            >
-              Create
-            </Button>
-          </Box>
-        </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNewItemDialog({ open: false, type: 'file', name: '' })}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreateItem} variant="contained">
+            Create
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );
 };
+
+export default FileExplorer;

@@ -10,6 +10,8 @@ This guide will help you create plugins for LARK Web. Our plugin system is desig
 5. [UI Integration](#ui-integration)
 6. [Best Practices](#best-practices)
 7. [Publishing](#publishing)
+8. [AI Integration](#ai-integration)
+9. [Router Integration](#router-integration)
 
 ## Plugin Architecture
 
@@ -221,6 +223,255 @@ interface FileSystemProvider {
 2. Keep dependencies updated
 3. Follow semantic versioning
 4. Maintain compatibility
+
+## AI Integration
+
+LARK Web's plugin system allows you to create custom AI integrations and enhance the editor's AI capabilities.
+
+### AI Provider Plugin
+
+Create a custom AI provider by implementing the `AIProvider` interface:
+
+```typescript
+interface AIProvider extends Plugin {
+  // Basic plugin properties
+  id: string;
+  name: string;
+  version: string;
+  
+  // AI-specific methods
+  createCompletion(prompt: string, options: AIOptions): Promise<string>;
+  createChatCompletion(messages: Message[], options: AIOptions): Promise<string>;
+  getModels(): Promise<string[]>;
+  validateApiKey(apiKey: string): Promise<boolean>;
+}
+
+interface AIOptions {
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  stop?: string[];
+  stream?: boolean;
+}
+
+interface Message {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+```
+
+### Example AI Provider Plugin
+
+Here's an example of a custom AI provider plugin:
+
+```typescript
+import { AIProvider, Plugin, PluginContext } from '@lark/types';
+
+export class CustomAIProvider implements AIProvider {
+  id = 'custom-ai-provider';
+  name = 'Custom AI Provider';
+  version = '1.0.0';
+  
+  private apiKey: string;
+  private endpoint: string;
+  
+  async activate(context: PluginContext) {
+    // Initialize provider
+    this.apiKey = context.settings.get('apiKey');
+    this.endpoint = context.settings.get('endpoint');
+  }
+  
+  async createCompletion(prompt: string, options: AIOptions) {
+    // Implement completion logic
+    const response = await fetch(`${this.endpoint}/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        prompt,
+        ...options
+      })
+    });
+    
+    const data = await response.json();
+    return data.choices[0].text;
+  }
+  
+  async createChatCompletion(messages: Message[], options: AIOptions) {
+    // Implement chat completion logic
+    const response = await fetch(`${this.endpoint}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messages,
+        ...options
+      })
+    });
+    
+    const data = await response.json();
+    return data.choices[0].message.content;
+  }
+  
+  async getModels() {
+    // Return available models
+    const response = await fetch(`${this.endpoint}/models`, {
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`
+      }
+    });
+    
+    const data = await response.json();
+    return data.models.map(m => m.id);
+  }
+  
+  async validateApiKey(apiKey: string) {
+    try {
+      const response = await fetch(`${this.endpoint}/validate`, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`
+        }
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+  
+  deactivate() {
+    // Cleanup
+  }
+}
+```
+
+### AI Feature Plugin
+
+You can also create plugins that add new AI-powered features:
+
+```typescript
+import { Plugin, PluginContext, AIService } from '@lark/types';
+
+export class AIFeaturePlugin implements Plugin {
+  id = 'ai-feature-plugin';
+  name = 'AI Feature Plugin';
+  version = '1.0.0';
+  
+  private aiService: AIService;
+  
+  async activate(context: PluginContext) {
+    this.aiService = context.services.get('ai');
+    
+    // Register commands
+    context.commands.register('aiFeature.translate', () => {
+      this.translateSelection();
+    });
+    
+    // Add UI elements
+    context.ui.addToolbarItem({
+      id: 'translate',
+      label: 'Translate',
+      icon: 'translate',
+      command: 'aiFeature.translate'
+    });
+  }
+  
+  async translateSelection() {
+    const editor = this.context.editor;
+    const selection = editor.getSelection();
+    
+    if (!selection) return;
+    
+    const text = editor.getText(selection);
+    const translation = await this.aiService.translate(text);
+    
+    editor.replaceText(selection, translation);
+  }
+  
+  deactivate() {
+    // Cleanup
+  }
+}
+```
+
+### Best Practices for AI Plugins
+
+1. **Performance**
+   - Implement request caching
+   - Use streaming for long responses
+   - Add timeout handling
+   - Show progress indicators
+
+2. **Error Handling**
+   - Handle API errors gracefully
+   - Provide fallback responses
+   - Show meaningful error messages
+   - Implement retry logic
+
+3. **Security**
+   - Secure API keys
+   - Validate user input
+   - Handle sensitive data properly
+   - Implement rate limiting
+
+4. **User Experience**
+   - Show loading states
+   - Provide cancel options
+   - Save user preferences
+   - Handle offline mode
+
+## Router Integration
+
+### Overview
+Plugins can integrate with LARK Web's router to add custom routes and enhance the application's navigation.
+
+### Router API
+```typescript
+interface RouterAPI {
+  // Navigate programmatically
+  navigate(path: string, options?: NavigateOptions): void;
+  
+  // Get current location
+  useLocation(): Location;
+  
+  // Access route parameters
+  useParams(): Params;
+  
+  // Add custom routes
+  addRoute(route: RouteConfig): void;
+}
+```
+
+### Route Configuration
+Plugins can add custom routes to the application:
+
+```typescript
+interface RouteConfig {
+  path: string;
+  element: React.ReactNode;
+  loader?: () => Promise<any>;
+  children?: RouteConfig[];
+}
+
+class MyPlugin implements Plugin {
+  activate(context: PluginContext) {
+    // Add a new route
+    context.router.addRoute({
+      path: 'my-plugin',
+      element: <MyPluginView />,
+      loader: async () => {
+        // Load data for the route
+        return await fetchData();
+      }
+    });
+  }
+}
+```
+
+Note: Custom routes will be added under the authenticated section (`/`) and will inherit the main layout and authentication protection.
 
 ## Support
 

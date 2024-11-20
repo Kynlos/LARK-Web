@@ -1,21 +1,8 @@
-import React from 'react';
-import { useState, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Box,
-  Button,
-  TextField,
-  Typography,
-  Paper,
-  Link,
-  CircularProgress,
-  InputAdornment,
-  IconButton,
-  useTheme,
-  alpha
-} from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Button, TextField, Typography, Link, Paper, CircularProgress, InputAdornment, IconButton } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { motion } from 'framer-motion';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { LordIcon } from '../common/LordIcon';
 import { Link as RouterLink } from 'react-router-dom';
@@ -26,13 +13,21 @@ const MotionBox = motion(Box);
 export const LoginForm = () => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { login, isLoading, error, setError, setLoading } = useAuthStore();
+  const location = useLocation();
+  const { login, isLoading, error: authError, setError, setLoading } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  console.log('LoginForm - location:', location);
+  console.log('LoginForm - location.state:', location.state);
+
+  const from = location.state?.from?.pathname || '/';
+  console.log('LoginForm - redirecting to:', from);
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    console.log('LoginForm - submitting form');
     setError('');
     setLoading(true);
 
@@ -41,8 +36,10 @@ export const LoginForm = () => {
         throw new Error('Please enter both email and password');
       }
 
+      console.log('LoginForm - attempting login');
       await login({ email, password });
-      navigate('/');
+      console.log('LoginForm - login successful, navigating to:', from);
+      navigate(from, { replace: true });
     } catch (error) {
       console.error('Login error:', error);
       setError((error as Error).message || 'Failed to login. Please try again.');
@@ -203,7 +200,7 @@ export const LoginForm = () => {
             )}
           </Button>
 
-          {error && (
+          {authError && (
             <Typography
               color="error"
               variant="body2"
@@ -212,7 +209,7 @@ export const LoginForm = () => {
               animate={{ opacity: 1 }}
               sx={{ textAlign: 'center', mt: 2 }}
             >
-              {error}
+              {authError}
             </Typography>
           )}
 

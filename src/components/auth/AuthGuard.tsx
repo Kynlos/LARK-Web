@@ -1,19 +1,19 @@
 import React from 'react';
-import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { UserRole } from '../../core/types/auth';
 
 interface AuthGuardProps {
-  children: ReactNode;
+  children: React.ReactNode;
   requiredRole?: UserRole;
 }
 
-export const AuthGuard = ({ children, requiredRole }: AuthGuardProps) => {
+export function AuthGuard({ children, requiredRole }: AuthGuardProps) {
   const { isAuthenticated, user } = useAuthStore();
+  const location = useLocation();
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   if (requiredRole && user?.role !== requiredRole) {
@@ -21,4 +21,4 @@ export const AuthGuard = ({ children, requiredRole }: AuthGuardProps) => {
   }
 
   return <>{children}</>;
-};
+}
