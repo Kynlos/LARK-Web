@@ -1,26 +1,14 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
-// Mock lottie-web to avoid canvas errors
-vi.mock('lottie-web', () => ({
-  default: {
-    loadAnimation: vi.fn().mockReturnValue({
-      play: vi.fn(),
-      stop: vi.fn(),
-      destroy: vi.fn(),
-    }),
-  },
-}));
-
-// Mock lord-icon-element
-vi.mock('lord-icon-element', () => ({}));
-
+// Mock ResizeObserver
 global.ResizeObserver = vi.fn().mockImplementation(() => ({
   observe: vi.fn(),
   unobserve: vi.fn(),
   disconnect: vi.fn(),
 }));
 
+// Mock matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation(query => ({
