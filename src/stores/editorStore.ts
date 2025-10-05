@@ -19,7 +19,7 @@ interface EditorStore {
   saveFile: (fileId: string) => Promise<void>;
   createFile: (parentPath: string, name: string, content?: string) => Promise<void>;
   createFolder: (parentPath: string, name: string) => Promise<void>;
-  renameFile: (path: string, newName: string) => Promise<void>;
+  renameFile: (fileId: string, newName: string) => Promise<void>;
   deleteFile: (fileId: string) => Promise<void>;
 }
 
@@ -170,8 +170,35 @@ export const useEditorStore = create<EditorStore>()(
         }
       },
 
-      renameFile: async (path, newName) => {
-        // TODO: Implement file renaming
+      renameFile: async (fileId, newName) => {
+        const { files, fileSystem } = get();
+        const file = files.find(f => f.id === fileId);
+        if (!file) {
+          throw new Error('File not found');
+        }
+
+        try {
+          const response = await fileSystem.renameFile(fileId, newName);
+          if (response.success && response.file) {
+            set(state => ({
+              files: state.files.map(f =>
+                f.id === fileId
+                  ? { ...f, name: newName, path: response.file!.path, lastModified: new Date() }
+                  : f
+              ),
+              projectFiles: state.projectFiles.map(f =>
+                f.id === fileId
+                  ? { ...f, name: newName, path: response.file!.path, lastModified: new Date() }
+                  : f
+              )
+            }));
+          } else {
+            throw new Error(response.message || 'Failed to rename file');
+          }
+        } catch (error) {
+          console.error('Failed to rename file:', error);
+          throw error;
+        }
       },
 
       deleteFile: async (fileId) => {

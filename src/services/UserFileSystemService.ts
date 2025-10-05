@@ -92,6 +92,19 @@ export class UserFileSystemService {
     }
   }
 
+  async renameFile(fileId: string, newName: string): Promise<FileOperationResponse> {
+    try {
+      if (this.useMockApi) {
+        return mockFileSystem.renameFile(fileId, newName);
+      }
+      const response = await axios.patch(`${this.baseUrl}/${fileId}/rename`, { name: newName });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to rename file:', error);
+      throw error;
+    }
+  }
+
   async searchFiles(query: string, path: string): Promise<FileListResponse> {
     try {
       if (this.useMockApi) {

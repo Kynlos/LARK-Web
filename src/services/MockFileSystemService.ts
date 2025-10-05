@@ -212,6 +212,43 @@ class MockFileSystemService implements FileSystemService {
 
     return { files };
   }
+
+  async renameFile(fileId: string, newName: string): Promise<FileOperationResponse> {
+    const file = this.files.get(fileId);
+    if (!file) {
+      return {
+        success: false,
+        message: 'File not found'
+      };
+    }
+
+    const pathParts = file.path.split('/');
+    pathParts[pathParts.length - 1] = newName;
+    const newPath = pathParts.join('/');
+
+    const existingFile = this.getFileByPath(newPath);
+    if (existingFile && existingFile.id !== fileId) {
+      return {
+        success: false,
+        message: 'A file with that name already exists'
+      };
+    }
+
+    const renamedFile: UserFile = {
+      ...file,
+      name: newName,
+      path: newPath,
+      updatedAt: new Date()
+    };
+
+    this.files.set(fileId, renamedFile);
+
+    return {
+      success: true,
+      message: 'File renamed successfully',
+      file: renamedFile
+    };
+  }
 }
 
 export const mockFileSystem = new MockFileSystemService();

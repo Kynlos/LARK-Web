@@ -33,7 +33,7 @@ export const QuickActionBar: React.FC<QuickActionBarProps> = ({
   onAIAction,
   getSelectedText,
 }) => {
-  const { activeProvider } = useAIStore();
+  const { settings } = useAIStore();
   const [aiMenuAnchor, setAiMenuAnchor] = useState<null | HTMLElement>(null);
   const [customPrompt, setCustomPrompt] = useState('');
 
@@ -60,6 +60,8 @@ export const QuickActionBar: React.FC<QuickActionBarProps> = ({
   };
 
   const handleAIAction = async (action: string, customInput: string = '') => {
+    const activeProvider = settings.providers.find(p => p.name === settings.activeProvider);
+    
     if (!activeProvider) {
       alert('Please configure an AI provider in your profile settings first.');
       return;
@@ -71,23 +73,30 @@ export const QuickActionBar: React.FC<QuickActionBarProps> = ({
       return;
     }
 
-    const aiService = new AIService(activeProvider);
+    const aiService = AIService.getInstance();
+    aiService.setProvider(activeProvider);
     let result = '';
 
     try {
       switch (action) {
         case 'improve':
-          result = await aiService.improveText(selectedText, 'Make this text more engaging and professional');
+          result = await aiService.improveWriting(selectedText);
           break;
         case 'continue':
           result = await aiService.suggestContinuation(selectedText);
           break;
         case 'brainstorm':
-          result = await aiService.brainstorm(selectedText);
+          const ideas = await aiService.brainstormIdeas(selectedText);
+          result = ideas.join('\n');
           break;
         case 'custom':
           if (!customInput) return;
-          result = await aiService.improveText(selectedText, customInput);
+          result = await aiService.getChatCompletion({
+            messages: [
+              { role: 'system', content: 'You are a professional writing assistant.' },
+              { role: 'user', content: `${customInput}\n\nText: ${selectedText}` }
+            ]
+          }).then(res => res.message.content);
           break;
         default:
           return;
@@ -167,6 +176,7 @@ export const QuickActionBar: React.FC<QuickActionBarProps> = ({
           })}
           <Box sx={{ borderLeft: 1, borderColor: 'divider', mx: 1 }} />
           {aiActions.map((action) => {
+            const activeProvider = settings.providers.find(p => p.name === settings.activeProvider);
             const disabled = !getSelectedText() || !activeProvider;
             const tooltipTitle = !getSelectedText()
               ? 'Please select text first'

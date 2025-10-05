@@ -17,6 +17,8 @@ import {
   DialogContent,
   DialogActions,
   Tooltip,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -59,6 +61,7 @@ export const FileExplorer: React.FC = () => {
     type: 'file',
     name: '',
   });
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Initialize with the user's root directory
@@ -108,7 +111,7 @@ export const FileExplorer: React.FC = () => {
         setNewItemDialog({ open: false, type: 'file', name: '' });
       } catch (error) {
         console.error('Failed to create item:', error);
-        // TODO: Show error to user
+        setError(`Failed to create ${newItemDialog.type}. Please try again.`);
       }
     }
   };
@@ -125,7 +128,7 @@ export const FileExplorer: React.FC = () => {
         setSelectedFile(file);
       } catch (error) {
         console.error('Failed to open file:', error);
-        // TODO: Show error to user
+        setError('Failed to open file. Please try again.');
       }
     }
   };
@@ -294,6 +297,17 @@ export const FileExplorer: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={!!error}
+        autoHideDuration={6000}
+        onClose={() => setError(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setError(null)} severity="error" sx={{ width: '100%' }}>
+          {error}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

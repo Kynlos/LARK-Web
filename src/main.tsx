@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { theme } from './theme';
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate, redirect } from 'react-router-dom';
 import { LoginForm } from './components/auth/LoginForm';
 import { RegisterForm } from './components/auth/RegisterForm';
 import { AuthGuard } from './components/auth/AuthGuard';
@@ -22,7 +22,8 @@ const router = createBrowserRouter([
     element: <LoginForm />,
     loader: () => {
       const { isAuthenticated } = useAuthStore.getState();
-      return isAuthenticated ? Navigate({ to: '/' }) : null;
+      if (isAuthenticated) return redirect('/');
+      return null;
     },
   },
   {
@@ -30,7 +31,8 @@ const router = createBrowserRouter([
     element: <RegisterForm />,
     loader: () => {
       const { isAuthenticated } = useAuthStore.getState();
-      return isAuthenticated ? Navigate({ to: '/' }) : null;
+      if (isAuthenticated) return redirect('/');
+      return null;
     },
   },
   {

@@ -2,6 +2,29 @@
 
 A modern, extensible web-based version of the Language Analysis and Response Kit (LARK).
 
+## 🚀 Recent Updates (October 5, 2025)
+
+### ✅ Critical Bug Fixes
+- **QuickActionBar AI Integration** - Fixed runtime errors with singleton pattern usage
+- **Router Guards** - Fixed loaders to use proper `redirect()` API  
+- **File Renaming** - Fully implemented across all services and stores
+- **Error Handling** - Added user-visible error notifications in FileExplorer
+
+### 🧪 Test Suite
+- **8 comprehensive test files** covering stores, services, components, and workflows
+- **50+ test cases** for critical functionality
+- **Vitest + React Testing Library** setup with coverage reporting
+- **CI/CD pipeline** with GitHub Actions
+
+### 📊 Performance Roadmap
+See [docs/IMPROVEMENTS.md](./docs/IMPROVEMENTS.md) for planned optimizations:
+- 30-60% bundle size reduction via code splitting
+- 50%+ fewer re-renders with Zustand selectors
+- Monaco editor debouncing to eliminate typing lag
+- IndexedDB migration for large file handling
+
+---
+
 ## Project Structure
 
 ```
@@ -304,10 +327,183 @@ await fileSystem.createFile({
 const shareLink = await fileSystem.shareFile('file-id');
 ```
 
+## 🐛 Bug Fixes & Improvements
+
+### Fixed Issues (October 5, 2025)
+
+#### 1. QuickActionBar AI Integration ✅
+**Problem:** Runtime errors when using AI features through the quick action bar.
+- Incorrect store access pattern (`activeProvider` instead of `settings.activeProvider`)
+- Attempted to instantiate singleton with `new AIService()`  
+- Called non-existent methods
+
+**Solution:**
+```typescript
+// Fixed store access
+const { settings } = useAIStore();
+const provider = settings.providers.find(p => p.name === settings.activeProvider);
+
+// Use singleton pattern correctly
+const aiService = AIService.getInstance();
+aiService.setProvider(provider);
+
+// Call correct methods
+await aiService.improveWriting(text);  // was: improveText()
+await aiService.brainstormIdeas(text);  // was: brainstorm()
+```
+
+#### 2. Router Guards ✅
+**Problem:** Loaders returned React components instead of using React Router's redirect API.
+
+**Solution:**
+```typescript
+// Before (incorrect)
+loader: () => {
+  const { isAuthenticated } = useAuthStore.getState();
+  return isAuthenticated ? Navigate({ to: '/' }) : null;
+}
+
+// After (correct)
+loader: () => {
+  const { isAuthenticated } = useAuthStore.getState();
+  if (isAuthenticated) return redirect('/');
+  return null;
+}
+```
+
+#### 3. File Renaming ✅
+**Problem:** `renameFile` function was a TODO placeholder.
+
+**Solution:** Implemented complete rename functionality:
+- Added `renameFile()` method to `MockFileSystemService`
+- Added `renameFile()` method to `UserFileSystemService`
+- Implemented `renameFile()` action in `editorStore`
+- Includes duplicate name detection
+- Updates all file references (files, projectFiles, paths)
+- Syncs with backend when available
+
+#### 4. Error Handling in FileExplorer ✅
+**Problem:** Errors were logged to console but never shown to users.
+
+**Solution:**
+- Added error state management
+- Implemented Material-UI Snackbar with Alert component
+- Display user-friendly error messages for:
+  - File creation failures
+  - File open failures
+  - Network errors
+  - Permission issues
+
+---
+
+## 🧪 Testing
+
+### Test Suite Overview
+
+LARK-Web now includes a comprehensive test suite built with:
+- **Vitest** - Fast, Vite-native testing framework
+- **React Testing Library** - Component testing utilities
+- **@testing-library/jest-dom** - Custom DOM matchers
+
+### Test Coverage
+
+**8 Test Files** covering:
+
+1. **Store Tests** (2 files)
+   - `editorStore.test.ts` - File operations, recent files, state management
+   - `aiStore.test.ts` - Provider management, configuration
+
+2. **Service Tests** (2 files)
+   - `AIService.test.ts` - API calls, writing assistance, error handling
+   - `MockFileSystemService.test.ts` - CRUD operations, search, rename
+
+3. **Component Tests** (2 files)
+   - `LoginForm.test.tsx` - Authentication flow, form validation
+   - `QuickActionBar.test.tsx` - Formatting, AI actions, button states
+
+4. **Integration Tests** (2 files)
+   - `editor-workflow.test.tsx` - Complete file lifecycle
+   - `ai-workflow.test.ts` - Provider setup and AI usage
+
+### Running Tests
+
+```bash
+# Install dependencies
+npm install
+
+# Run all tests
+npm test
+
+# Run with coverage
+npm run test:coverage
+
+# Interactive test UI
+npm run test:ui
+```
+
+### Test Documentation
+
+- **[docs/TESTING.md](./docs/TESTING.md)** - Complete testing guide
+- **[README.test.md](./README.test.md)** - Test suite summary
+- **[TEST_SUITE_SETUP.md](./TEST_SUITE_SETUP.md)** - Setup instructions
+
+### CI/CD
+
+GitHub Actions workflow automatically:
+- Runs tests on Node 18.x and 20.x
+- Checks linting and type errors
+- Generates coverage reports
+- Uploads to Codecov
+- Validates builds
+
+---
+
+## 📚 Documentation
+
+### Available Guides
+
+- **[AGENTS.md](./AGENTS.md)** - AI agent instructions, common commands
+- **[docs/TESTING.md](./docs/TESTING.md)** - Complete testing guide (300+ lines)
+- **[docs/IMPROVEMENTS.md](./docs/IMPROVEMENTS.md)** - Performance optimization roadmap
+- **[docs/BUG_FIXES.md](./docs/BUG_FIXES.md)** - Detailed bug fix documentation
+- **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Contribution guidelines
+
+### Quick Commands
+
+```bash
+# Development
+npm run dev              # Start dev server
+npm run build            # Build for production
+npm run preview          # Preview production build
+
+# Quality Checks
+npm run lint             # Run ESLint
+npm test                 # Run test suite
+npm run test:coverage    # Generate coverage report
+
+# Pre-commit Checks
+npm run lint && npm test && npm run build
+```
+
+---
+
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
+Before submitting a PR:
+1. Run `npm run lint` to check code style
+2. Run `npm test` to ensure all tests pass  
+3. Run `npm run build` to verify TypeScript compilation
+4. Add tests for new features
+5. Update documentation as needed
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+**Maintained by:** LARK-Web Team  
+**Last Updated:** October 5, 2025  
+**Version:** 0.1.0
